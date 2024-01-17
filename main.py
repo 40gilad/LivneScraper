@@ -3,49 +3,76 @@ from bs4 import BeautifulSoup as BS
 from googlesearch import search
 from docx import Document
 
-"""
-response = requests.get(
-	url="https://he.wikipedia.org/wiki/%D7%AA%D7%97%D7%A0%D7%AA_%D7%94%D7%9B%D7%95%D7%97_%D7%93%D7%9C%D7%99%D7%94",
-)
-print(response.status_code)
-
-soup = BS(response.content, "html.parser")
-temp=soup.find_all('p')
-kaki=1
-"""
-document=Document()
-def get_wiki_link(param):
-	query = f"{param} ויקי "
-	search_res=search(query, tld="co.il",stop=3)
-	for j in search_res:
-		if 'he.wikipedia.org/wiki/' in j:
-			return j
-	return None
+document = Document()
 
 
-def get_data_from_wiki(wiki_link):
-	response = requests.get(url=wiki_link)
-	soup = BS(response.content, "html.parser")
-	temp = soup.find_all('p')
-	return temp
+def get_link(company, wiki=False, maya=False):
+    if wiki:
+        query = f"{company} ויקי "
+    elif maya:
+        query = f"{company} מאיה "
+    search_res = search(query, tld="co.il", stop=3)
+    for j in search_res:
+        if (wiki and 'he.wikipedia.org/wiki/' in j) or (maya and 'maya.tase.co.il' in j):
+            return j.split('?')[0]
+    return None
 
 
-if __name__=='__main__':
-	paragraph = document.add_paragraph()
-	company_name='דליה חברות אנרגיה'
-	wiki_headline='	1. כללי: ויקיפדיה ואתר אינטרנט'
-	document.add_heading(company_name, 0)
-	document.add_heading(wiki_headline, 1)
-
-	wiki_link=get_wiki_link(company_name)
-	if wiki_link is not None:
-		wiki_text=get_data_from_wiki(wiki_link)[0]
-	else:
-		wiki_text='NO WIKIPEDIA LINK FOUND'
-	document.add_paragraph(wiki_text)
+def get_data_from_site(link,wiki=False, maya=False):
+    response = requests.get(url=link)
+    soup = BS(response.content, "html.parser")
+    if wiki:
+        return soup.find_all('p')
+    elif maya:
+        temp= soup.find_all('div', {'class': 'tableCol col1'})
+        kaki=1
+    return None
 
 
-	document.save('test.docx')
+def format_html_txt(html_string):
+    soup = BS(html_string, 'html.parser')
+    text_without_tags = soup.get_text()
+    return text_without_tags
 
 
+def add_wiki_sum(wiki_link, paragraphs=3):
+    wiki_text = ''
+    if wiki_link is not None:
+        wiki_data = get_data_from_site(link=wiki_link,wiki=True)
+        for i in range(0, paragraphs):
+            wiki_text += format_html_txt(wiki_data[i].get_text())
+            wiki_text += '\n'
+    else:
+        wiki_text = 'לא נמצא לינק לויקיפדיה'
+    document.add_paragraph(wiki_text)
 
+
+def add_maya_sum(maya_link):
+    maya_text = ''
+    if maya_link is not None:
+        maya_data = get_data_from_site(link=maya_link,maya=True)
+    else:
+        maya_text = 'לא נמצא לינק למאיה'
+    document.add_paragraph(maya_text)
+
+
+def headline_and_wiki_txt(_company_name):
+    wiki_headline = '    1. כללי: ויקיפדיה'
+    maya_headline = 'בעלות: מאיה'
+    document.add_heading(_company_name, 0)
+
+    # ----------- WIKIPEDIA DATA -----------#
+    document.add_heading(wiki_headline, 1)
+    wiki_link = get_link(company=company_name, wiki=True)
+    add_wiki_sum(wiki_link=wiki_link)
+    # -------------- MAYA DATA --------------#
+    document.add_heading(maya_headline, 1)
+    maya_link = get_link(company=company_name, maya=True)
+    add_maya_sum(maya_link=maya_link)
+
+
+if __name__ == '__main__':
+    paragraph = document.add_paragraph()
+    company_name = 'דליה אנרגיה'
+    headline_and_wiki_txt(_company_name=company_name)
+    document.save(f'{company_name}.docx')

@@ -2,8 +2,15 @@ import requests
 from bs4 import BeautifulSoup as BS
 from googlesearch import search
 from docx import Document
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 document = Document()
+chrome_driver_path = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+profile_directory = 'C:\\Users\\40gil\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 1'
+chrome_options = Options()
+chrome_options.add_argument(f'--user-data-dir={chrome_driver_path}/user-data')
+chrome_options.add_argument(f'--profile-directory={profile_directory}')
 
 
 def get_link(company, wiki=False, maya=False):
@@ -24,7 +31,12 @@ def get_data_from_site(link,wiki=False, maya=False):
     if wiki:
         return soup.find_all('p')
     elif maya:
-        temp= soup.find_all('div', {'class': 'tableCol col1'})
+        driver = webdriver.Chrome(executable_path=chrome_driver_path, options=chrome_options)
+        driver.get(link)
+        driver.implicitly_wait(10)
+        page_source = driver.page_source
+        driver.quit()
+        #temp= soup.find_all('div', {'class': 'tableCol col1'})
         kaki=1
     return None
 

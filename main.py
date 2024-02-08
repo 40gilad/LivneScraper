@@ -2,8 +2,13 @@ import requests
 from bs4 import BeautifulSoup as BS
 from googlesearch import search
 from docx import Document
-from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from requests_html import HTMLSession
+from dotenv import load_dotenv
+import openai
+import os
+
+#region Globals
 
 document = Document()
 chrome_driver_path = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
@@ -11,6 +16,25 @@ profile_directory = 'C:\\Users\\40gil\\AppData\\Local\\Google\\Chrome\\User Data
 chrome_options = Options()
 chrome_options.add_argument(f'--user-data-dir={chrome_driver_path}/user-data')
 chrome_options.add_argument(f'--profile-directory={profile_directory}')
+
+#endregion
+
+# region Load .env
+
+
+env_path = r'C:\Users\40gil\Desktop\Helpful\Scraping\LivneScraperPY\LivneScraper.env'
+try:
+    load_dotenv(dotenv_path=env_path)
+    api_key = os.getenv('OPENAI_KEY')
+    if api_key is None:
+        raise ValueError("OpenAI API key not found in environment variables.")
+except Exception as err:
+    print(f"Error: {err}")
+    # Handle the error accordingly, e.g., exit the script or provide a default API key.
+
+
+
+# endregion
 
 
 def get_link(company, wiki=False, maya=False):
@@ -25,21 +49,49 @@ def get_link(company, wiki=False, maya=False):
     return None
 
 
-def get_data_from_site(link,wiki=False, maya=False):
+def get_data_from_site(link, wiki=False, maya=False):
     response = requests.get(url=link)
     soup = BS(response.content, "html.parser")
     if wiki:
         return soup.find_all('p')
     elif maya:
-        driver = webdriver.Chrome(executable_path=chrome_driver_path, options=chrome_options)
-        driver.get(link)
-        driver.implicitly_wait(10)
-        page_source = driver.page_source
-        driver.quit()
-        #temp= soup.find_all('div', {'class': 'tableCol col1'})
-        kaki=1
+        s = HTMLSession()
+        response = s.get(link)
+        response.html.render()
+        kaki = 1
     return None
 
+
+def ask_gepeto(prompt):
+    # ChatGPT API endpoint
+    endpoint = "https://api.openai.com/v1/chat/completions"
+
+
+    # Headers containing the Authorization with your API key
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    # Data payload containing the prompt and other parameters
+    data = {
+        "model": "gpt-3.5-turbo",  # You can choose different models as per your requirement
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+
+    try:
+        # Making a POST request to the API
+        response = requests.post(endpoint, json=data, headers=headers)
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"]
+        else:
+            return f"Error: {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 def format_html_txt(html_string):
     soup = BS(html_string, 'html.parser')
@@ -50,7 +102,7 @@ def format_html_txt(html_string):
 def add_wiki_sum(wiki_link, paragraphs=3):
     wiki_text = ''
     if wiki_link is not None:
-        wiki_data = get_data_from_site(link=wiki_link,wiki=True)
+        wiki_data = get_data_from_site(link=wiki_link, wiki=True)
         for i in range(0, paragraphs):
             wiki_text += format_html_txt(wiki_data[i].get_text())
             wiki_text += '\n'
@@ -62,7 +114,7 @@ def add_wiki_sum(wiki_link, paragraphs=3):
 def add_maya_sum(maya_link):
     maya_text = ''
     if maya_link is not None:
-        maya_data = get_data_from_site(link=maya_link,maya=True)
+        maya_data = get_data_from_site(link=maya_link, maya=True)
     else:
         maya_text = 'לא נמצא לינק למאיה'
     document.add_paragraph(maya_text)
@@ -84,6 +136,12 @@ def headline_and_wiki_txt(_company_name):
 
 
 if __name__ == '__main__':
+    prompt = "check openai api from my python script"
+    generated_response = ask_gepeto(prompt)
+    print("Generated Response:")
+    print(generated_response)
+
+
     paragraph = document.add_paragraph()
     company_name = 'דליה אנרגיה'
     headline_and_wiki_txt(_company_name=company_name)

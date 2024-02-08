@@ -7,15 +7,14 @@ from requests_html import HTMLSession
 from dotenv import load_dotenv
 import openai
 import os
+from selenium import webdriver
+
 
 #region Globals
 
 document = Document()
-chrome_driver_path = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-profile_directory = 'C:\\Users\\40gil\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 1'
-chrome_options = Options()
-chrome_options.add_argument(f'--user-data-dir={chrome_driver_path}/user-data')
-chrome_options.add_argument(f'--profile-directory={profile_directory}')
+driver = webdriver.Chrome(executable_path=r"C:\Users\40gil\Desktop\Helpful\Scraping\chromedriver.exe")  # You may need to download the appropriate webdriver for your browser (e.g., ChromeDriver)
+
 
 #endregion
 
@@ -50,15 +49,15 @@ def get_link(company, wiki=False, maya=False):
 
 
 def get_data_from_site(link, wiki=False, maya=False):
-    response = requests.get(url=link)
-    soup = BS(response.content, "html.parser")
     if wiki:
+        response = requests.get(url=link)
+        soup = BS(response.content, "html.parser")
         return soup.find_all('p')
     elif maya:
-        s = HTMLSession()
-        response = s.get(link)
-        response.html.render()
-        kaki = 1
+        driver.get(link)
+        page_source = driver.page_source
+        soup = BS(page_source, 'html.parser')
+        return soup
     return None
 
 
@@ -136,6 +135,7 @@ def headline_and_wiki_txt(_company_name):
 
 
 if __name__ == '__main__':
+    get_data_from_site(link='https://maya.tase.co.il/company/1840', maya=True)
     prompt = "check openai api from my python script"
     generated_response = ask_gepeto(prompt)
     print("Generated Response:")

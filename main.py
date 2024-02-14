@@ -47,17 +47,32 @@ def get_link(company, wiki=False, maya=False):
             return j.split('?')[0]
     return None
 
+def crawl_shareholders_table(table):
+    shareholders_data = '\n'
+    for t in table:
+        shareholders_data += "\n" + t.get_text(separator=' ', strip=True)
+    extracted_data = ask_gepeto(f"the following text represent a table.\
+                extract for me the data in bullets for each row. before the dates there is the company name."
+                                f"please make a newline before you write the company name: {shareholders_data}")
+    return extracted_data
 
 def get_data_from_site(link, wiki=False, maya=False):
     if wiki:
         response = requests.get(url=link)
         soup = BS(response.content, "html.parser")
-        return soup.find_all('p')
+        wiki_data= soup.find_all('p')
+        wiki_text='\n'
+        for p in wiki_data:
+            wiki_text += format_html_txt(p.get_text())+'\n'
+        kaki=1
     elif maya:
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
-        return soup
+        driver.quit()
+        shareholders_section = soup.find('div', class_='listTable share-holders-grid')
+        table=shareholders_section.find_all('div',class_='tableCol')
+        return crawl_shareholders_table(table=table)
     return None
 
 
@@ -99,12 +114,8 @@ def format_html_txt(html_string):
 
 
 def add_wiki_sum(wiki_link, paragraphs=3):
-    wiki_text = ''
     if wiki_link is not None:
         wiki_data = get_data_from_site(link=wiki_link, wiki=True)
-        for i in range(0, paragraphs):
-            wiki_text += format_html_txt(wiki_data[i].get_text())
-            wiki_text += '\n'
     else:
         wiki_text = 'לא נמצא לינק לויקיפדיה'
     document.add_paragraph(wiki_text)
@@ -113,7 +124,7 @@ def add_wiki_sum(wiki_link, paragraphs=3):
 def add_maya_sum(maya_link):
     maya_text = ''
     if maya_link is not None:
-        maya_data = get_data_from_site(link=maya_link, maya=True)
+        maya_text = get_data_from_site(link=maya_link, maya=True)
     else:
         maya_text = 'לא נמצא לינק למאיה'
     document.add_paragraph(maya_text)
@@ -135,14 +146,7 @@ def headline_and_wiki_txt(_company_name):
 
 
 if __name__ == '__main__':
-    get_data_from_site(link='https://maya.tase.co.il/company/1840', maya=True)
-    prompt = "check openai api from my python script"
-    generated_response = ask_gepeto(prompt)
-    print("Generated Response:")
-    print(generated_response)
-
-
     paragraph = document.add_paragraph()
-    company_name = 'דליה אנרגיה'
+    company_name = 'בנק הפועלים'
     headline_and_wiki_txt(_company_name=company_name)
     document.save(f'{company_name}.docx')

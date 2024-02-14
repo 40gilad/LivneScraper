@@ -80,7 +80,7 @@ def get_link(company, wiki=False, maya=False, bizportal=False,facebook=False,ins
     for j in search_res:
         if (
                 (wiki and 'he.wikipedia.org/wiki/' in j)
-                or (maya and 'maya.tase.co.il' in j and 'details' in j)
+                or (maya and 'maya.tase.co.il' in j)
                 or (bizportal and 'bizportal.co.il' in j)
                 or (facebook and 'facebook.com' in j)
                 or (instagram and 'instagram.com' in j)

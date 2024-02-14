@@ -73,7 +73,11 @@ def get_link(company, wiki=False, maya=False, bizportal=False):
 
     search_res = search(query, tld="co.il", stop=3)
     for j in search_res:
-        if (wiki and 'he.wikipedia.org/wiki/' in j) or (maya and 'maya.tase.co.il' in j):
+        if (
+                (wiki and 'he.wikipedia.org/wiki/' in j)
+                or (maya and 'maya.tase.co.il' in j)
+                or (bizportal and 'bizportal.co.il' in j)
+        ):
             return j.split('?')[0]
     return None
 
@@ -108,12 +112,11 @@ def get_data_from_site(link, wiki=False, maya=False, bizportal=False, maya_repor
         wiki_text = '\n'
         for i in range(0, 5):
             wiki_text += format_html_txt(wiki_data[i].get_text()) + '\n'
-        return ask_gepeto(f"summerize this whole text for me in hebrew:{wiki_text}")
+        return ask_gepeto(f"summerize this whole text for me in *hebrew*:{wiki_text}")
     elif maya:
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
-        driver.quit()
         shareholders_section = soup.find('div', class_='listTable share-holders-grid')
         table = shareholders_section.find_all('div', class_='tableCol')
         return crawl_shareholders_table(table=table)
@@ -121,7 +124,6 @@ def get_data_from_site(link, wiki=False, maya=False, bizportal=False, maya_repor
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
-        driver.quit()
         reports_section = soup.find('maya-reports')
         reports = reports_section.find_all('div', class_='feedItem ng-scope')
         return crawl_reports(reports=reports)
@@ -129,7 +131,7 @@ def get_data_from_site(link, wiki=False, maya=False, bizportal=False, maya_repor
         return ask_gepeto(f"{link} \n"
                           f"give me the bonds detailes for this company.\
                             i want the bond value, kind, it's Interest rate and other useful data\
-                            give me the data in bullets and in hebrew", model=GPT4)
+                            give me the data in bullets and in *hebrew*", model=GPT4)
     return None
 
 
@@ -201,7 +203,7 @@ def add_key_people(company_name):
     key_people_text = ''
     if company_name is not None:
         key_people_text = ask_gepeto(
-            prompt=f"give me in bullets and in hebrew the key people from the company {company_name}",
+            prompt=f"give me in bullets and in *HEBREW* the key people from the company {company_name}",
             model=GPT4)
     else:
         key_people_text = "לא נמצאו אנשי מפתח"
@@ -218,7 +220,7 @@ def add_last_reports(maya_link=None):
 
 
 # endregion
-def headline_and_wiki_txt(_company_name):
+def scrape_and_sum(_company_name):
     wiki_headline = '    1. כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
     bizportal_headline = 'ני"ע: ביזפורטל'
@@ -229,26 +231,29 @@ def headline_and_wiki_txt(_company_name):
     # ----------- WIKIPEDIA DATA -----------#
     add_headline(text=wiki_headline)
     wiki_link = get_link(company=company_name, wiki=True)
-    # add_wiki_sum(wiki_link=wiki_link)
+    add_wiki_sum(wiki_link=wiki_link)
     # -------------- MAYA DATA --------------#
     add_headline(text=maya_headline)
     maya_link = get_link(company=company_name, maya=True)
-    # add_maya_sum(maya_link=maya_link)
+    add_maya_sum(maya_link=maya_link)
     # -------------- BIZPORTAL DATA --------------#
     add_headline(text=bizportal_headline)
     bizportal_link = get_link(company=company_name, bizportal=True)
-    # add_bizportal_sum(maya_link=maya_link)
+    add_bizportal_sum(bizportal_link=bizportal_link)
     # -------------- KEY PEOPLE DATA --------------#
     add_headline(text=key_people_headline)
-    # add_key_people(company_name=_company_name)
+    add_key_people(company_name=_company_name)
     # -------------- IMMIDIATE REPORTS --------------#
-    add_headline(text=key_people_headline)
+    add_headline(text=imeidiate_reports)
     link = f"{maya_link}?view=reports&q=%7B%22DateFrom%22:%222023-02-13T22:00:00.000Z%22,%22DateTo%22:%222024-02-13T22:00:00.000Z%22,%22Page%22:1,%22entity%22:%221840%22,%22events%22:%5B%5D,%22subevents%22:%5B%5D%7D"
     add_last_reports(maya_link=link)
 
 
+
+
 if __name__ == '__main__':
     paragraph = document.add_paragraph()
-    company_name = 'דליה אנרגיה'
-    headline_and_wiki_txt(_company_name=company_name)
+    company_name = 'בנק הפועלים'
+    scrape_and_sum(_company_name=company_name)
+    driver.quit()
     document.save(f'{company_name}.docx')

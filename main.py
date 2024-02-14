@@ -15,8 +15,7 @@ GPT4 = "gpt-4-0125-preview"
 document = Document()
 section = document.sections[0]
 section.right_to_left = True
-driver = webdriver.Chrome(
-    executable_path=r"C:\Users\40gil\Desktop\Helpful\Scraping\chromedriver.exe")  # You may need to download the appropriate webdriver for your browser (e.g., ChromeDriver)
+chrome_driver_path=r"C:\Users\40gil\Desktop\Helpful\Scraping\chromedriver.exe"
 
 # endregion
 
@@ -63,20 +62,30 @@ def format_html_txt(html_string):
     return text_without_tags
 
 
-def get_link(company, wiki=False, maya=False, bizportal=False):
+def get_link(company, wiki=False, maya=False, bizportal=False,facebook=False,instagram=False,linkedin=False):
     if wiki:
         query = f"{company} ויקי "
     elif maya:
         query = f"{company} מאיה "
     elif bizportal:
-        query = f"{company} ביזפורטל "
+        query = f"{company} ביזפורטל אגח "
+    elif instagram:
+        query = f"{company} instagram"
+    elif facebook:
+        query = f"{company} facebook"
+    elif linkedin:
+        query = f"{company} linkedin"
 
     search_res = search(query, tld="co.il", stop=3)
     for j in search_res:
         if (
                 (wiki and 'he.wikipedia.org/wiki/' in j)
-                or (maya and 'maya.tase.co.il' in j)
+                or (maya and 'maya.tase.co.il' in j and 'details' in j)
                 or (bizportal and 'bizportal.co.il' in j)
+                or (facebook and 'facebook.com' in j)
+                or (instagram and 'instagram.com' in j)
+                or (linkedin and 'linkedin.com' in j)
+
         ):
             return j.split('?')[0]
     return None
@@ -114,24 +123,43 @@ def get_data_from_site(link, wiki=False, maya=False, bizportal=False, maya_repor
             wiki_text += format_html_txt(wiki_data[i].get_text()) + '\n'
         return ask_gepeto(f"summerize this whole text for me in *hebrew*:{wiki_text}")
     elif maya:
+        driver = webdriver.Chrome(executable_path=chrome_driver_path)
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
-        shareholders_section = soup.find('div', class_='listTable share-holders-grid')
-        table = shareholders_section.find_all('div', class_='tableCol')
-        return crawl_shareholders_table(table=table)
+        driver.quit()
+        try:
+            shareholders_section = soup.find('div', class_='listTable share-holders-grid')
+            table = shareholders_section.find_all('div', class_='tableCol')
+            return crawl_shareholders_table(table=table)
+        except Exception as e:
+            print(f"{link}, for maya\nexception: {e}")
+            return 'משהו השתבש'
     elif maya_reports:
+        driver = webdriver.Chrome(executable_path=chrome_driver_path)
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
-        reports_section = soup.find('maya-reports')
-        reports = reports_section.find_all('div', class_='feedItem ng-scope')
-        return crawl_reports(reports=reports)
+        driver.quit()
+        try:
+            reports_section = soup.find('maya-reports')
+            reports = reports_section.find_all('div', class_='feedItem ng-scope')
+            return crawl_reports(reports=reports)
+        except Exception as e:
+            print(f"{link}, for maya reports\nexception: {e}")
+            return 'משהו השתבש'
     elif bizportal:
+        print("BIZPORTAL, GPT4 PROMPT:")
+        print(f"{link} \n"
+                          f"give me the bonds detailes for this company.\
+                            i want the bond value, kind, it's Interest rate and other useful data\
+                            give me the data in bullets and in *hebrew*"
+                          f"Please write only the information, without additions of introduction or conclusion")
         return ask_gepeto(f"{link} \n"
                           f"give me the bonds detailes for this company.\
                             i want the bond value, kind, it's Interest rate and other useful data\
-                            give me the data in bullets and in *hebrew*", model=GPT4)
+                            give me the data in bullets and in *hebrew*"
+                          f"Please write only the information, without additions of introduction or conclusion", model=GPT4)
     return None
 
 
@@ -173,7 +201,7 @@ def ask_gepeto(prompt, model=GPT3):
 # endregion
 
 # region add_<section>_sum
-def add_wiki_sum(wiki_link):
+def add_wiki_sum(wiki_link=None):
     if wiki_link is not None:
         wiki_data = get_data_from_site(link=wiki_link, wiki=True)
     else:
@@ -181,7 +209,7 @@ def add_wiki_sum(wiki_link):
     add_paragraph(wiki_data)
 
 
-def add_maya_sum(maya_link):
+def add_maya_sum(maya_link=None):
     maya_text = ''
     if maya_link is not None:
         maya_text = get_data_from_site(link=maya_link, maya=True)
@@ -190,7 +218,7 @@ def add_maya_sum(maya_link):
     add_paragraph(maya_text)
 
 
-def add_bizportal_sum(bizportal_link):
+def add_bizportal_sum(bizportal_link=None):
     bizportal_text = ''
     if bizportal_link is not None:
         bizportal_text = get_data_from_site(link=bizportal_link, bizportal=True)
@@ -199,11 +227,12 @@ def add_bizportal_sum(bizportal_link):
     add_paragraph(bizportal_text)
 
 
-def add_key_people(company_name):
+def add_key_people(company_name=None):
     key_people_text = ''
     if company_name is not None:
         key_people_text = ask_gepeto(
-            prompt=f"give me in bullets and in *HEBREW* the key people from the company {company_name}",
+            prompt=f"give me in bullets and in *HEBREW* the key people from the company {company_name}"
+                   f"Please write only the information, without additions of introduction or conclusion",
             model=GPT4)
     else:
         key_people_text = "לא נמצאו אנשי מפתח"
@@ -218,14 +247,47 @@ def add_last_reports(maya_link=None):
         maya_text = 'לא נמצאו דיווחים אחרונים במאיה'
         add_paragraph(maya_text)
 
+def add_juice(company_name=None):
+    juice_text =''
+    if company_name is not None:
+        juice_text = ask_gepeto(prompt=f"give me a short summary *IN HEBREW* about the company {company_name}"
+                                       f"everything intersting and relevant for money investing"
+                                       f"Please write only the information, without additions of introduction or conclusion",model=GPT4)
+    else:
+        juice_text = 'לא נמצא מידע רלוונטי בעיתונות ובאינטרנט'
+    add_paragraph(juice_text)
+
+def add_social(company_name=None):
+    # ----------- FACEBOOK URL -----------#
+    txt = 'פייסבוק- '
+    add_paragraph(txt, style='List Bullet')
+    link=get_link(company_name,facebook=True)
+    if link is not None:
+        add_paragraph(link)
+
+    # ----------- INSTAGRAM URL -----------#
+    txt = 'אינסטגרם- '
+    add_paragraph(txt, style='List Bullet')
+    link=get_link(company_name,instagram=True)
+    if link is not None:
+        add_paragraph(link)
+
+    # ----------- LINKEDIN URL -----------#
+    txt = 'לינקדאין- '
+    add_paragraph(txt, style='List Bullet')
+    link=get_link(company_name,linkedin=True)
+    if link is not None:
+        add_paragraph(link)
 
 # endregion
 def scrape_and_sum(_company_name):
     wiki_headline = '    1. כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
     bizportal_headline = 'ני"ע: ביזפורטל'
-    key_people_headline = 'אנשי מפתח: '
+    key_people_headline = 'אנשי מפתח: CHATGPT'
     imeidiate_reports = 'דווחים מידיים: מאיה'
+    juice_headline= 'עיתונות: CHATGPT'
+    social_headline= 'סושיאל:'
     add_headline(text=_company_name, size=0)
 
     # ----------- WIKIPEDIA DATA -----------#
@@ -247,13 +309,25 @@ def scrape_and_sum(_company_name):
     add_headline(text=imeidiate_reports)
     link = f"{maya_link}?view=reports&q=%7B%22DateFrom%22:%222023-02-13T22:00:00.000Z%22,%22DateTo%22:%222024-02-13T22:00:00.000Z%22,%22Page%22:1,%22entity%22:%221840%22,%22events%22:%5B%5D,%22subevents%22:%5B%5D%7D"
     add_last_reports(maya_link=link)
+    # -------------- JUICE DATA --------------#
+    add_headline(text=juice_headline)
+    add_juice(company_name=_company_name)
+    # -------------- SOCIAL DATA --------------#
+    add_headline(text=social_headline)
+    add_social(company_name=_company_name)
+
+
+
 
 
 
 
 if __name__ == '__main__':
     paragraph = document.add_paragraph()
-    company_name = 'בנק הפועלים'
+    company_name = 'הפניקס'
     scrape_and_sum(_company_name=company_name)
-    driver.quit()
-    document.save(f'{company_name}.docx')
+    try:
+        document.save(f'{company_name}.docx')
+    except:
+        document.save(f'{company_name}_second.docx')
+

@@ -2,10 +2,9 @@ import requests
 from bs4 import BeautifulSoup as BS
 from googlesearch import search
 from docx import Document
-from selenium.webdriver.chrome.options import Options
-from requests_html import HTMLSession
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.shared import Pt
 from dotenv import load_dotenv
-import openai
 import os
 from selenium import webdriver
 
@@ -13,6 +12,8 @@ from selenium import webdriver
 #region Globals
 
 document = Document()
+section = document.sections[0]
+section.right_to_left = True
 driver = webdriver.Chrome(executable_path=r"C:\Users\40gil\Desktop\Helpful\Scraping\chromedriver.exe")  # You may need to download the appropriate webdriver for your browser (e.g., ChromeDriver)
 
 
@@ -35,6 +36,21 @@ except Exception as err:
 
 # endregion
 
+
+
+def add_paragraph(text):
+    par= document.add_paragraph(text)
+    run = par.runs[0]  # Assuming there is only one run in the paragraph
+
+    # Set the font of the text
+    font = run.font
+    font.name = 'Calibri'  # Set the font name
+    font.size = Pt(12)  # Set the font size
+    par.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+
+def add_headline(text,size=1):
+    hed= document.add_heading(text, size)
+    hed.alignment =WD_PARAGRAPH_ALIGNMENT.RIGHT
 
 def get_link(company, wiki=False, maya=False):
     if wiki:
@@ -62,9 +78,9 @@ def get_data_from_site(link, wiki=False, maya=False):
         soup = BS(response.content, "html.parser")
         wiki_data= soup.find_all('p')
         wiki_text='\n'
-        for p in wiki_data:
-            wiki_text += format_html_txt(p.get_text())+'\n'
-        kaki=1
+        for i in range(0,5):
+            wiki_text += format_html_txt(wiki_data[i].get_text())+'\n'
+        return ask_gepeto(f"summerize this whole text for me in hebrew:{wiki_text}")
     elif maya:
         driver.get(link)
         page_source = driver.page_source
@@ -113,12 +129,12 @@ def format_html_txt(html_string):
     return text_without_tags
 
 
-def add_wiki_sum(wiki_link, paragraphs=3):
+def add_wiki_sum(wiki_link):
     if wiki_link is not None:
         wiki_data = get_data_from_site(link=wiki_link, wiki=True)
     else:
         wiki_text = 'לא נמצא לינק לויקיפדיה'
-    document.add_paragraph(wiki_text)
+    add_paragraph(wiki_data)
 
 
 def add_maya_sum(maya_link):
@@ -127,26 +143,26 @@ def add_maya_sum(maya_link):
         maya_text = get_data_from_site(link=maya_link, maya=True)
     else:
         maya_text = 'לא נמצא לינק למאיה'
-    document.add_paragraph(maya_text)
+    add_paragraph(maya_text)
 
 
 def headline_and_wiki_txt(_company_name):
     wiki_headline = '    1. כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
-    document.add_heading(_company_name, 0)
+    add_headline(text=_company_name,size=0)
 
     # ----------- WIKIPEDIA DATA -----------#
-    document.add_heading(wiki_headline, 1)
+    add_headline(text=wiki_headline)
     wiki_link = get_link(company=company_name, wiki=True)
     add_wiki_sum(wiki_link=wiki_link)
     # -------------- MAYA DATA --------------#
-    document.add_heading(maya_headline, 1)
+    add_headline(text=maya_headline)
     maya_link = get_link(company=company_name, maya=True)
     add_maya_sum(maya_link=maya_link)
 
 
 if __name__ == '__main__':
     paragraph = document.add_paragraph()
-    company_name = 'בנק הפועלים'
+    company_name = 'האחים צברי'
     headline_and_wiki_txt(_company_name=company_name)
     document.save(f'{company_name}.docx')

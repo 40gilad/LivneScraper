@@ -270,13 +270,12 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
         driver.quit()
-        try:
-            shareholders_section = soup.find('div', class_='listTable share-holders-grid')
-            table = shareholders_section.find_all('div', class_='tableCol')
-            return crawl_shareholders_table(table=table)
-        except Exception as e:
-            print(f"{link}, for maya shareholders\nexception: {e}")
-            return 'משהו השתבש'
+        share_holders_table=soup.find_all(name="div", class_="listTable share-holders-grid")
+        rows = share_holders_table[0].find_all(name="div", class_="ng-scope tableRow")
+        for row in rows:
+            comp_name=row.find(name="div",class_="tableCol col_1 multiCell ng-scope").get_text()
+            precentage=row.find(name="div",class_="tableCol col_6 multiCell ng-scope").get_text()
+
     elif maya_reports:
         driver = webdriver.Chrome(executable_path=chrome_driver_path)
         driver.get(link)

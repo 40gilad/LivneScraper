@@ -9,6 +9,8 @@ import os
 from selenium import webdriver
 import datetime
 
+from selenium.webdriver.support.wait import WebDriverWait
+
 # region Globals
 
 GPT3 = "gpt-3.5-turbo"
@@ -75,7 +77,7 @@ def insert_bizportal_data(root_bonds_url_data=None, driver=None):
     if root_bonds_url_data is None or driver is None:
         raise ValueError("root_bonds_url_data or driver are None")
         return
-    sub_headline = f'{len(root_bonds_url_data)} אגח :'
+    sub_headline = f'{len(root_bonds_url_data)}: אגח '
     add_paragraph(text=f"{sub_headline}\n", subheadline=True)
 
     for d in root_bonds_url_data:
@@ -86,7 +88,7 @@ def insert_bizportal_data(root_bonds_url_data=None, driver=None):
         soup = BS(page_source, 'html.parser')
 
         # add bonds sum as subheadline and the name of the bond
-        add_paragraph(text=f"{d['name']} - ", style='List Bullet')
+        add_paragraph(text=f" - {d['name']}  ", style='List Bullet',subheadline=True)
 
         # from root page
         spans = soup.find_all(name='span', class_='label')
@@ -107,14 +109,14 @@ def insert_bizportal_data(root_bonds_url_data=None, driver=None):
 
                 iter_counter += 1
 
-                add_paragraph(text=f"{span.find_next('span').get_text()}, ")
+                add_paragraph(text=f"{span.find_next('span').get_text()} ", style='List Bullet 2')
             elif curr_span == 'מח"מ:':
 
                 iter_counter += 1
 
                 val = span.find_next('span').get_text()
-                text_to_insert = f"{curr_span} {val}, "
-                add_paragraph(text=text_to_insert)
+                text_to_insert = f"{curr_span} {val} "
+                add_paragraph(text=text_to_insert, style='List Bullet 2')
 
         # get data bond page
         driver.get(d['data_link'])
@@ -126,29 +128,29 @@ def insert_bizportal_data(root_bonds_url_data=None, driver=None):
         for span in spans:
 
             if iter_counter == 3:
+
+                #unknwon ribit type and ribit val order of reading, so insrting at the end
+                add_paragraph(text=f"{ribit_type} {ribit_val}", style='List Bullet 2')
                 break
 
             curr_span = span.get_text()
             if curr_span == 'סוג ריבית':
-
+                ribit_type=f" ריבית {span.find_next(name='td',class_='num').get_text()} "
                 iter_counter += 1
-                add_paragraph(text=f"{span.find_next('span').get_text()}ריבית ")
 
             elif curr_span == 'שיעור ריבית':
 
                 iter_counter += 1
                 val = span.find_next(name='td', class_="num").get_text()
-                text_to_insert = f" {val}, "
-                add_paragraph(text=text_to_insert)
+                ribit_val = f"% {val} "
 
             elif curr_span == 'דרוג מידרוג + אופק':
 
                 iter_counter += 1
                 text_to_insert = "דירוג מידרוג "
                 text_to_insert += span.find_next(name='td', class_="num").get_text()
-                add_paragraph(text=text_to_insert)
+                add_paragraph(text=text_to_insert, style='List Bullet 2')
 
-        KAKI = 1
 
 
 # endregion
@@ -231,7 +233,9 @@ def crawl_shareholders_table(table):
     for t in table:
         shareholders_data += "\n" + t.get_text(separator=' ', strip=True)
     extracted_data = ask_gepeto(f"the following text represent a table.\
-                extract for me the name of the company, and it's percentage in bullets for each row. before the dates there is the company name.: {shareholders_data}",
+                                extract for me the name of the company, and it's percentage for each row."
+                                f" before the dates there is the company name.: {shareholders_data}"
+                                f"Please write only the information, without additions of introduction or conclusion.",
                                 model=GPT4)
     return extracted_data
 
@@ -262,6 +266,7 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
     elif maya:
         driver = webdriver.Chrome(executable_path=chrome_driver_path)
         driver.get(link)
+        WebDriverWait(driver, 10)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
         driver.quit()
@@ -270,7 +275,7 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
             table = shareholders_section.find_all('div', class_='tableCol')
             return crawl_shareholders_table(table=table)
         except Exception as e:
-            print(f"{link}, for maya\nexception: {e}")
+            print(f"{link}, for maya shareholders\nexception: {e}")
             return 'משהו השתבש'
     elif maya_reports:
         driver = webdriver.Chrome(executable_path=chrome_driver_path)
@@ -281,7 +286,8 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
         try:
             reports_section = soup.find('maya-reports')
             reports = reports_section.find_all('div', class_='feedItem ng-scope')
-            return crawl_reports(reports=reports)
+            crawl_reports(reports=reports)
+
         except Exception as e:
             print(f"{link}, for maya reports\nexception: {e}")
             return 'משהו השתבש'
@@ -360,7 +366,7 @@ def add_key_people(company_name=None):
     if company_name is not None:
         key_people_text = ask_gepeto(
             prompt=f"give me in bullets and in *HEBREW* the key people from the company {company_name}"
-                   f"Please write only the information, without additions of introduction or conclusion",
+                   f"Please write only the information, without additions of introduction or conclusion.",
             model=GPT4)
     else:
         key_people_text = "לא נמצאו אנשי מפתח"
@@ -390,21 +396,21 @@ def add_juice(company_name=None):
 
 def add_social(company_name=None):
     # ----------- FACEBOOK URL -----------#
-    txt = 'פייסבוק- '
+    txt = '-פייסבוק '
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, facebook=True)
     if link is not None:
         add_paragraph(link)
 
     # ----------- INSTAGRAM URL -----------#
-    txt = 'אינסטגרם- '
+    txt = '-אינסטגרם '
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, instagram=True)
     if link is not None:
         add_paragraph(link)
 
     # ----------- LINKEDIN URL -----------#
-    txt = 'לינקדאין- '
+    txt = '-לינקדאין '
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, linkedin=True)
     if link is not None:
@@ -416,13 +422,13 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     if _company_name is None or bond_name is None:
         raise ValueError('_Company_name or bond_name are None. both should have valid value')
 
-    wiki_headline = '    1. כללי: ויקיפדיה'
+    wiki_headline = '    כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
     bizportal_headline = 'ני"ע: ביזפורטל'
-    key_people_headline = 'אנשי מפתח: CHATGPT'
-    imeidiate_reports = 'דווחים מידיים: מאיה'
-    juice_headline = 'עיתונות: CHATGPT'
-    social_headline = 'סושיאל:'
+    key_people_headline = 'אנשי מפתח (מומלץ לאמת את המידע) : CHATGPT'
+    imeidiate_reports = 'דיווחים מידיים: מאיה'
+    juice_headline = 'עיתונות (מומלץ לאמת את המידע) : CHATGPT'
+    social_headline = ':סושיאל'
     add_headline(text=_company_name, size=0)
 
     # ----------- WIKIPEDIA DATA -----------#

@@ -7,6 +7,7 @@ from docx.shared import Pt
 from dotenv import load_dotenv
 import os
 from selenium import webdriver
+import datetime
 
 # region Globals
 
@@ -15,7 +16,11 @@ GPT4 = "gpt-4-0125-preview"
 document = Document()
 section = document.sections[0]
 section.right_to_left = True
-chrome_driver_path=r"C:\Users\40gil\Desktop\Helpful\Scraping\chromedriver.exe"
+output_folder = None
+bizportal_root = "https://www.bizportal.co.il"
+bizportal_data_link = "https://www.bizportal.co.il/bonds/quote/bondsdata/"
+bizportal_search_page = "https://www.bizportal.co.il/list/searchpapers?search="
+chrome_driver_path = r"C:\Users\40gil\Desktop\Helpful\Scraping\chromedriver.exe"
 
 # endregion
 
@@ -36,14 +41,26 @@ except Exception as err:
 # endregion
 
 # region Doc manipulation
-def add_paragraph(text, style=None):
+
+def create_output_folder(path=None):
+    output_folder = path
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+
+def add_paragraph(text=None, style=None, subheadline=False):
+    if text is None:
+        raise ValueError("text is required")
+        return
     par = document.add_paragraph(text, style=style)
     run = par.runs[0]  # Assuming there is only one run in the paragraph
-
-    # Set the font of the text
     font = run.font
     font.name = 'Calibri'  # Set the font name
-    font.size = Pt(12)  # Set the font size
+    if subheadline:
+        font.size = Pt(15)  # Set the font size
+    else:
+        font.size = Pt(12)  # Set the font size
+
     par.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
 
 
@@ -51,6 +68,87 @@ def add_headline(text, size=1):
     global document
     hed = document.add_heading(text, size)
     hed.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+
+
+def insert_bizportal_data(root_bonds_url_data=None, driver=None):
+
+    if root_bonds_url_data is None or driver is None:
+        raise ValueError("root_bonds_url_data or driver are None")
+        return
+    sub_headline = f'{len(root_bonds_url_data)} אגח :'
+    add_paragraph(text=f"{sub_headline}\n", subheadline=True)
+
+    for d in root_bonds_url_data:
+
+        # get root bond page
+        driver.get(d['root_link'])
+        page_source = driver.page_source
+        soup = BS(page_source, 'html.parser')
+
+        # add bonds sum as subheadline and the name of the bond
+        add_paragraph(text=f"{d['name']} - ", style='List Bullet')
+
+        # from root page
+        spans = soup.find_all(name='span', class_='label')
+
+        # every if inc counter, so if all ifs happens -> break
+        iter_counter = 0
+
+        for span in spans:
+
+            if iter_counter == 2:  # already got into all ifs
+                iter_counter = 0
+                break
+            curr_span = span.get_text()
+
+            # todo NEED TO INSERT VALUE
+
+            if curr_span == 'ענף':
+
+                iter_counter += 1
+
+                add_paragraph(text=f"{span.find_next('span').get_text()}, ")
+            elif curr_span == 'מח"מ:':
+
+                iter_counter += 1
+
+                val = span.find_next('span').get_text()
+                text_to_insert = f"{curr_span} {val}, "
+                add_paragraph(text=text_to_insert)
+
+        # get data bond page
+        driver.get(d['data_link'])
+        page_source = driver.page_source
+        soup = BS(page_source, 'html.parser')
+
+        # from data page
+        spans = soup.find_all(name='td', class_='label')
+        for span in spans:
+
+            if iter_counter == 3:
+                break
+
+            curr_span = span.get_text()
+            if curr_span == 'סוג ריבית':
+
+                iter_counter += 1
+                add_paragraph(text=f"{span.find_next('span').get_text()}ריבית ")
+
+            elif curr_span == 'שיעור ריבית':
+
+                iter_counter += 1
+                val = span.find_next(name='td', class_="num").get_text()
+                text_to_insert = f" {val}, "
+                add_paragraph(text=text_to_insert)
+
+            elif curr_span == 'דרוג מידרוג + אופק':
+
+                iter_counter += 1
+                text_to_insert = "דירוג מידרוג "
+                text_to_insert += span.find_next(name='td', class_="num").get_text()
+                add_paragraph(text=text_to_insert)
+
+        KAKI = 1
 
 
 # endregion
@@ -62,7 +160,7 @@ def format_html_txt(html_string):
     return text_without_tags
 
 
-def get_link(company, wiki=False, maya=False, bizportal=False,facebook=False,instagram=False,linkedin=False):
+def get_link(company, wiki=False, maya=False, bizportal=False, facebook=False, instagram=False, linkedin=False):
     if wiki:
         query = f"{company} ויקי "
     elif maya:
@@ -91,20 +189,58 @@ def get_link(company, wiki=False, maya=False, bizportal=False,facebook=False,ins
     return None
 
 
+def get_bonds(bond_name, driver):
+    """
+
+    :param bond_name:
+    :param driver:
+    :return: [{
+                'root_link': root_link,
+                'name': bond_name,
+                'bond_number': bond_number
+            },
+            {
+                .....
+            }
+            ]
+    """
+    bond_name = bond_name.replace(" ", "%20")
+    link = f"{bizportal_search_page}{bond_name}"
+    driver.get(link)
+    page_source = driver.page_source
+    soup = BS(page_source, 'html.parser')
+    bonds_links = soup.find_all('a', class_='link')
+    ret = []
+    for link in bonds_links:
+        root_link = f"{bizportal_root}{link.get('href')}"
+        root_splitted = root_link.split("/")
+        bond_number = root_splitted[len(root_splitted) - 1]
+        ret.append(
+            {
+                'root_link': root_link,
+                'name': link.get_text(),
+                'bond_number': bond_number,
+                'data_link': f"{bizportal_data_link}{bond_number}"
+            }
+        )
+    return ret
+
+
 def crawl_shareholders_table(table):
     shareholders_data = '\n'
     for t in table:
         shareholders_data += "\n" + t.get_text(separator=' ', strip=True)
     extracted_data = ask_gepeto(f"the following text represent a table.\
-                extract for me the name of the company, and it's percentage in bullets for each row. before the dates there is the company name.: {shareholders_data}")
+                extract for me the name of the company, and it's percentage in bullets for each row. before the dates there is the company name.: {shareholders_data}",
+                                model=GPT4)
     return extracted_data
 
 
 def crawl_reports(reports=None):
     if reports:
         for i in range(0, 10):
-            txt ='- '+reports[i].find_all('span', class_='feedItemDateMobile ng-binding')[0].get_text(separator=' ',
-                                                                                                  strip=True)
+            txt = '- ' + reports[i].find_all('span', class_='feedItemDateMobile ng-binding')[0].get_text(separator=' ',
+                                                                                                         strip=True)
             if txt is not None:
                 add_paragraph(txt, style='List Bullet')
             txt = reports[i].find_all('a', class_='messageContent')[0].get_text(separator=' ', strip=True) + '\n'
@@ -113,7 +249,8 @@ def crawl_reports(reports=None):
                 add_paragraph(txt)
 
 
-def get_data_from_site(link, wiki=False, maya=False, bizportal=False, maya_reports=False):
+def get_data_from_site(link=None, company_name=None, bond_name=None,
+                       wiki=False, maya=False, bizportal=False, maya_reports=False):
     if wiki:
         response = requests.get(url=link)
         soup = BS(response.content, "html.parser")
@@ -149,17 +286,11 @@ def get_data_from_site(link, wiki=False, maya=False, bizportal=False, maya_repor
             print(f"{link}, for maya reports\nexception: {e}")
             return 'משהו השתבש'
     elif bizportal:
-        print("BIZPORTAL, GPT4 PROMPT:")
-        print(f"{link} \n"
-                          f"give me the bonds detailes for this company.\
-                            i want the bond value, kind, it's Interest rate and other useful data\
-                            give me the data in bullets and in *hebrew*"
-                          f"Please write only the information, without additions of introduction or conclusion")
-        return ask_gepeto(f"{link} \n"
-                          f"give me the bonds detailes for this company.\
-                            i want the bond value, kind, it's Interest rate and other useful data\
-                            give me the data in bullets and in *hebrew*"
-                          f"Please write only the information, without additions of introduction or conclusion", model=GPT4)
+        driver = webdriver.Chrome(executable_path=chrome_driver_path)
+        root_bonds_url_data = get_bonds(bond_name=bond_name, driver=driver)
+        insert_bizportal_data(root_bonds_url_data=root_bonds_url_data, driver=driver)
+        driver.quit()
+
     return None
 
 
@@ -218,13 +349,10 @@ def add_maya_sum(maya_link=None):
     add_paragraph(maya_text)
 
 
-def add_bizportal_sum(bizportal_link=None):
+def add_bizportal_sum(company_name=None, bond_name=None):
     bizportal_text = ''
-    if bizportal_link is not None:
-        bizportal_text = get_data_from_site(link=bizportal_link, bizportal=True)
-    else:
-        bizportal_text = 'לא נמצא לינק לביזפורטל'
-    add_paragraph(bizportal_text)
+    if company_name is not None:
+        get_data_from_site(company_name=company_name, bond_name=bond_name, bizportal=True)
 
 
 def add_key_people(company_name=None):
@@ -247,47 +375,54 @@ def add_last_reports(maya_link=None):
         maya_text = 'לא נמצאו דיווחים אחרונים במאיה'
         add_paragraph(maya_text)
 
+
 def add_juice(company_name=None):
-    juice_text =''
+    juice_text = ''
     if company_name is not None:
         juice_text = ask_gepeto(prompt=f"give me a short summary *IN HEBREW* about the company {company_name}"
                                        f"everything intersting and relevant for money investing"
-                                       f"Please write only the information, without additions of introduction or conclusion",model=GPT4)
+                                       f"Please write only the information, without additions of introduction or conclusion",
+                                model=GPT4)
     else:
         juice_text = 'לא נמצא מידע רלוונטי בעיתונות ובאינטרנט'
     add_paragraph(juice_text)
+
 
 def add_social(company_name=None):
     # ----------- FACEBOOK URL -----------#
     txt = 'פייסבוק- '
     add_paragraph(txt, style='List Bullet')
-    link=get_link(company_name,facebook=True)
+    link = get_link(company_name, facebook=True)
     if link is not None:
         add_paragraph(link)
 
     # ----------- INSTAGRAM URL -----------#
     txt = 'אינסטגרם- '
     add_paragraph(txt, style='List Bullet')
-    link=get_link(company_name,instagram=True)
+    link = get_link(company_name, instagram=True)
     if link is not None:
         add_paragraph(link)
 
     # ----------- LINKEDIN URL -----------#
     txt = 'לינקדאין- '
     add_paragraph(txt, style='List Bullet')
-    link=get_link(company_name,linkedin=True)
+    link = get_link(company_name, linkedin=True)
     if link is not None:
         add_paragraph(link)
 
+
 # endregion
-def scrape_and_sum(_company_name):
+def scrape_and_sum(_company_name=None, bond_name=None):
+    if _company_name is None or bond_name is None:
+        raise ValueError('_Company_name or bond_name are None. both should have valid value')
+
     wiki_headline = '    1. כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
     bizportal_headline = 'ני"ע: ביזפורטל'
     key_people_headline = 'אנשי מפתח: CHATGPT'
     imeidiate_reports = 'דווחים מידיים: מאיה'
-    juice_headline= 'עיתונות: CHATGPT'
-    social_headline= 'סושיאל:'
+    juice_headline = 'עיתונות: CHATGPT'
+    social_headline = 'סושיאל:'
     add_headline(text=_company_name, size=0)
 
     # ----------- WIKIPEDIA DATA -----------#
@@ -301,7 +436,7 @@ def scrape_and_sum(_company_name):
     # -------------- BIZPORTAL DATA --------------#
     add_headline(text=bizportal_headline)
     bizportal_link = get_link(company=company_name, bizportal=True)
-    add_bizportal_sum(bizportal_link=bizportal_link)
+    add_bizportal_sum(company_name=company_name, bond_name=bond_name)
     # -------------- KEY PEOPLE DATA --------------#
     add_headline(text=key_people_headline)
     add_key_people(company_name=_company_name)
@@ -317,17 +452,18 @@ def scrape_and_sum(_company_name):
     add_social(company_name=_company_name)
 
 
-
-
-
-
-
 if __name__ == '__main__':
     paragraph = document.add_paragraph()
-    company_name = 'הפניקס'
-    scrape_and_sum(_company_name=company_name)
-    try:
-        document.save(f'{company_name}.docx')
-    except:
-        document.save(f'{company_name}_second.docx')
+    company_name = 'דליה אנרגיה'
+    scrape_and_sum(_company_name=company_name, bond_name='דליה אגח')
 
+    if output_folder is None:
+        try:
+            document.save(f'{company_name}.docx')
+        except:
+            document.save(f'{company_name}_{datetime.datetime.now().strftime("%d.%m_%H.%M")}.docx')
+    else:
+        try:
+            document.save(f'{output_folder}\\{company_name}.docx')
+        except:
+            document.save(f'{output_folder}\\{company_name}_{datetime.datetime.now().strftime("%d.%m_%H.%M")}.docx')

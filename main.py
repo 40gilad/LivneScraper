@@ -9,7 +9,6 @@ import os
 from selenium import webdriver
 import datetime
 
-from selenium.webdriver.support.wait import WebDriverWait
 
 # region Globals
 
@@ -43,12 +42,6 @@ except Exception as err:
 # endregion
 
 # region Doc manipulation
-
-def create_output_folder(path=None):
-    output_folder = path
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
 
 def add_paragraph(text=None, style=None, subheadline=False):
     if text is None:
@@ -173,7 +166,7 @@ def get_link(company, wiki=False, maya=False, bizportal=False, facebook=False, i
     elif linkedin:
         query = f"{company} linkedin"
 
-    search_res = search(query, tld="co.il", stop=3)
+    search_res = search(query)
     for j in search_res:
         if (
                 (wiki and 'he.wikipedia.org/wiki/' in j)
@@ -225,18 +218,6 @@ def get_bonds(bond_name, driver):
     return ret
 
 
-def crawl_shareholders_table(table):
-    shareholders_data = '\n'
-    for t in table:
-        shareholders_data += "\n" + t.get_text(separator=' ', strip=True)
-    extracted_data = ask_gepeto(f"the following text represent a table.\
-                                extract for me the name of the company, and it's percentage for each row."
-                                f" before the dates there is the company name.: {shareholders_data}"
-                                f"Please write only the information, without additions of introduction or conclusion.",
-                                model=GPT4)
-    return extracted_data
-
-
 def crawl_reports(reports=None):
     if reports:
         for i in range(0, 10):
@@ -250,21 +231,22 @@ def crawl_reports(reports=None):
                 add_paragraph(f"    {txt}")
 
 
-def get_data_from_site(link=None, company_name=None, bond_name=None,
-                       wiki=False, maya=False, key_people=False, bizportal=False, maya_reports=False):
+def get_data_from_site(link=None, bond_name=None, wiki=False,
+                       maya=False, key_people=False, bizportal=False, maya_reports=False):
     if wiki:
-        paragraphs_limit=5
+        paragraphs_limit = 5
         response = requests.get(url=link)
         soup = BS(response.content, "html.parser")
         wiki_data = soup.find_all('p')
         wiki_text = '\n'
         if len(wiki_data) < paragraphs_limit:
-            paragraphs_limit =len(wiki_data)
+            paragraphs_limit = len(wiki_data)
         for i in range(0, paragraphs_limit):
             wiki_text += format_html_txt(wiki_data[i].get_text()) + '\n'
         return ask_gepeto(f"summerize this whole text for me in *hebrew*:{wiki_text}")
+
     elif maya:
-        driver = webdriver.Chrome(executable_path=chrome_driver_path)
+        driver = webdriver.Chrome()
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
@@ -274,8 +256,8 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
 
         ret_txt = ''
         for row in rows:
-            comp_name_tag=row.find(name="div")
-            precentage_tag=row.find(name="div", class_="tableCol col_6 ng-binding ng-scope")
+            comp_name_tag = row.find(name="div")
+            precentage_tag = row.find(name="div", class_="tableCol col_6 ng-binding ng-scope")
             if comp_name_tag is not None and precentage_tag is not None:
                 comp_name = comp_name_tag.get_text()
                 precentage = precentage_tag.get_text()
@@ -284,7 +266,7 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
         return ret_txt
 
     elif key_people:
-        driver = webdriver.Chrome(executable_path=chrome_driver_path)
+        driver = webdriver.Chrome()
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
@@ -303,12 +285,8 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
                 ret_txt += f"{person_role} - {person_name}\n"
         return ret_txt
 
-
-
-
-
     elif maya_reports:
-        driver = webdriver.Chrome(executable_path=chrome_driver_path)
+        driver = webdriver.Chrome()
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
@@ -323,7 +301,7 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
             return 'משהו השתבש'
 
     elif bizportal:
-        driver = webdriver.Chrome(executable_path=chrome_driver_path)
+        driver = webdriver.Chrome()
         root_bonds_url_data = get_bonds(bond_name=bond_name, driver=driver)
         insert_bizportal_data(root_bonds_url_data=root_bonds_url_data, driver=driver)
         driver.quit()
@@ -380,7 +358,11 @@ def add_wiki_sum(wiki_link=None):
 def add_maya_sum(maya_link=None):
     maya_text = ''
     if maya_link is not None:
-        maya_text = get_data_from_site(link=maya_link, maya=True)
+        try:
+            maya_text = get_data_from_site(link=maya_link, maya=True)
+        except Exception as e:
+            raise Exception(f"add_maya_sum Error: {str(e)}")
+            maya_text = 'קרתה תקלה. נסה שוב '
     else:
         maya_text = 'לא נמצא לינק למאיה'
     add_paragraph(maya_text)
@@ -389,13 +371,20 @@ def add_maya_sum(maya_link=None):
 def add_bizportal_sum(company_name=None, bond_name=None):
     bizportal_text = ''
     if company_name is not None:
-        get_data_from_site(company_name=company_name, bond_name=bond_name, bizportal=True)
+        try:
+            get_data_from_site(bond_name=bond_name, bizportal=True)
+        except Exception as e:
+            raise Exception(f"add_bizportal_sum Error: {str(e)}")
 
 
 def add_key_people(maya_link=None):
     key_text = ''
     if maya_link is not None:
-        key_text = get_data_from_site(link=maya_link, key_people=True)
+        try:
+            key_text = get_data_from_site(link=maya_link, key_people=True)
+        except Exception as e:
+            raise Exception(f"add_bizportal_sum Error: {str(e)}")
+            key_text = 'קרתה תקלה. נסה שוב '
     else:
         key_text = 'לא נמצא לינק למאיה'
     add_paragraph(key_text)
@@ -404,7 +393,11 @@ def add_key_people(maya_link=None):
 def add_last_reports(maya_link=None):
     maya_text = ''
     if maya_link is not None:
-        maya_text = get_data_from_site(link=maya_link, maya_reports=True)
+        try:
+            maya_text = get_data_from_site(link=maya_link, maya_reports=True)
+        except Exception as e:
+            raise Exception(f"add_bizportal_sum Error: {str(e)}")
+            key_text = 'קרתה תקלה. נסה שוב '
     else:
         maya_text = 'לא נמצאו דיווחים אחרונים במאיה'
         add_paragraph(maya_text)
@@ -446,9 +439,11 @@ def add_social(company_name=None):
 
 
 # endregion
+
+
 def scrape_and_sum(_company_name=None, bond_name=None):
     if _company_name is None or bond_name is None:
-        raise ValueError('_Company_name or bond_name are None. both should have valid value')
+        raise ValueError('Scrape_and_sum: _Company_name or bond_name are None. both should have valid value')
 
     wiki_headline = '    כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
@@ -487,11 +482,18 @@ def scrape_and_sum(_company_name=None, bond_name=None):
 
 
 def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=None):
-    global output_folder, chrome_driver_path
 
+    global output_folder, chrome_driver_path
+    if _company_name is None or bond_name is None or to_save_path is None or chrome_driver is None:
+        raise ValueError('in start function, you must provide all necessary arguments')
     output_folder = to_save_path
     chrome_driver_path = chrome_driver
-    scrape_and_sum(_company_name=_company_name, bond_name=bond_name)
+
+    try:
+        scrape_and_sum(_company_name=_company_name, bond_name=bond_name)
+    except Exception as e:
+        raise Exception(f'in start function: {e}')
+
     if output_folder is None:
         try:
             document.save(f'{_company_name}.docx')
@@ -505,20 +507,9 @@ def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=N
 
 
 if __name__ == '__main__':
-    start()
-    """
-    paragraph = document.add_paragraph()
-    company_name = 'אלביט מערכות'
-    scrape_and_sum(_company_name=company_name, bond_name='אלביט מערכות אגח')
+    try:
+        start()
+    except Exception as e:
+        print(f"\nAn error occurred: " + str(e))
+        exit(1)
 
-    if output_folder is None:
-        try:
-            document.save(f'{company_name}.docx')
-        except:
-            document.save(f'{company_name}_{datetime.datetime.now().strftime("%d.%m_%H.%M")}.docx')
-    else:
-        try:
-            document.save(f'{output_folder}\\{company_name}.docx')
-        except:
-            document.save(f'{output_folder}\\{company_name}_{datetime.datetime.now().strftime("%d.%m_%H.%M")}.docx')
-            """

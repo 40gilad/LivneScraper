@@ -35,7 +35,7 @@ def on_submit():
 
 # Create the main window
 root = tk.Tk()
-root.title("Hen Livne Scrapper")
+root.title("HelpfulPro Scrapper")
 
 # Text Input 1
 company_name_input_text = tk.Label(root, text="שם החברה :")
@@ -54,7 +54,7 @@ to_save_path_input_text = tk.Label(root, text="? איפה לשמור את הקו
 to_save_path_input_text.grid(row=2, column=0, padx=10, pady=10)
 to_save_path_input = tk.Entry(root)
 to_save_path_input.grid(row=2, column=1, padx=10, pady=10)
-button_browse_1 = tk.Button(root, text="Browse", command=lambda: browse_folder(to_save_path_input))
+button_browse_1 = tk.Button(root, text="עיון...", command=lambda: browse_folder(to_save_path_input))
 button_browse_1.grid(row=2, column=2, padx=10, pady=10)
 
 # Path 2
@@ -62,7 +62,7 @@ chrome_driver_path_input_text = tk.Label(root, text="Crome driver:")
 chrome_driver_path_input_text.grid(row=3, column=0, padx=10, pady=10)
 chrome_driver_path_input = tk.Entry(root)
 chrome_driver_path_input.grid(row=3, column=1, padx=10, pady=10)
-button_browse_2 = tk.Button(root, text="Browse", command=lambda: browse_file(chrome_driver_path_input))
+button_browse_2 = tk.Button(root, text="עיון...", command=lambda: browse_file(chrome_driver_path_input))
 button_browse_2.grid(row=3, column=2, padx=10, pady=10)
 
 output_text_label = tk.Label(root, text="Output:")

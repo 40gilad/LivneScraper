@@ -73,7 +73,6 @@ def add_headline(text, size=1):
 
 
 def insert_bizportal_data(root_bonds_url_data=None, driver=None):
-
     if root_bonds_url_data is None or driver is None:
         raise ValueError("root_bonds_url_data or driver are None")
         return
@@ -88,7 +87,7 @@ def insert_bizportal_data(root_bonds_url_data=None, driver=None):
         soup = BS(page_source, 'html.parser')
 
         # add bonds sum as subheadline and the name of the bond
-        add_paragraph(text=f" - {d['name']}  ", style='List Bullet',subheadline=True)
+        add_paragraph(text=f" - {d['name']}  ", style='List Bullet', subheadline=True)
 
         # from root page
         spans = soup.find_all(name='span', class_='label')
@@ -128,14 +127,13 @@ def insert_bizportal_data(root_bonds_url_data=None, driver=None):
         for span in spans:
 
             if iter_counter == 3:
-
-                #unknwon ribit type and ribit val order of reading, so insrting at the end
+                # unknwon ribit type and ribit val order of reading, so insrting at the end
                 add_paragraph(text=f"{ribit_type} {ribit_val}", style='List Bullet 2')
                 break
 
             curr_span = span.get_text()
             if curr_span == 'סוג ריבית':
-                ribit_type=f" ריבית {span.find_next(name='td',class_='num').get_text()} "
+                ribit_type = f" ריבית {span.find_next(name='td', class_='num').get_text()} "
                 iter_counter += 1
 
             elif curr_span == 'שיעור ריבית':
@@ -150,7 +148,6 @@ def insert_bizportal_data(root_bonds_url_data=None, driver=None):
                 text_to_insert = "דירוג מידרוג "
                 text_to_insert += span.find_next(name='td', class_="num").get_text()
                 add_paragraph(text=text_to_insert, style='List Bullet 2')
-
 
 
 # endregion
@@ -250,11 +247,11 @@ def crawl_reports(reports=None):
             txt = reports[i].find_all('a', class_='messageContent')[0].get_text(separator=' ', strip=True) + '\n'
 
             if txt is not None:
-                add_paragraph(txt)
+                add_paragraph(f"    {txt}")
 
 
 def get_data_from_site(link=None, company_name=None, bond_name=None,
-                       wiki=False, maya=False, bizportal=False, maya_reports=False):
+                       wiki=False, maya=False, key_people=False, bizportal=False, maya_reports=False):
     if wiki:
         response = requests.get(url=link)
         soup = BS(response.content, "html.parser")
@@ -266,15 +263,41 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
     elif maya:
         driver = webdriver.Chrome(executable_path=chrome_driver_path)
         driver.get(link)
-        WebDriverWait(driver, 10)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
         driver.quit()
-        share_holders_table=soup.find_all(name="div", class_="listTable share-holders-grid")
+        share_holders_table = soup.find_all(name="div", class_="listTable share-holders-grid")
         rows = share_holders_table[0].find_all(name="div", class_="ng-scope tableRow")
+
+        ret_txt = ''
         for row in rows:
-            comp_name=row.find(name="div",class_="tableCol col_1 multiCell ng-scope").get_text()
-            precentage=row.find(name="div",class_="tableCol col_6 multiCell ng-scope").get_text()
+            comp_name = row.find(name="div").get_text()
+            precentage = row.find(name="div", class_="tableCol col_6 ng-binding ng-scope").get_text()
+            ret_txt += f"% {comp_name} - {precentage}\n"
+
+        return ret_txt
+
+    elif key_people:
+        driver = webdriver.Chrome(executable_path=chrome_driver_path)
+        driver.get(link)
+        page_source = driver.page_source
+        soup = BS(page_source, 'html.parser')
+        driver.quit()
+        key_people_table = soup.find_all(name="div", class_="mobileTableFrame")[2]
+        rows = key_people_table.find_all(name="div", class_="ng-scope tableRow")
+
+        ret_txt = ''
+        for row in rows:
+            person_name_tag = row.find(name="div")
+            person_role = person_name_tag.find_next(name="div").get_text()
+            if person_role != "דירקטור רגיל":
+                person_name = person_name_tag.get_text()
+                ret_txt += f"{person_role} - {person_name}\n"
+        return ret_txt
+
+
+
+
 
     elif maya_reports:
         driver = webdriver.Chrome(executable_path=chrome_driver_path)
@@ -290,6 +313,7 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
         except Exception as e:
             print(f"{link}, for maya reports\nexception: {e}")
             return 'משהו השתבש'
+
     elif bizportal:
         driver = webdriver.Chrome(executable_path=chrome_driver_path)
         root_bonds_url_data = get_bonds(bond_name=bond_name, driver=driver)
@@ -360,16 +384,13 @@ def add_bizportal_sum(company_name=None, bond_name=None):
         get_data_from_site(company_name=company_name, bond_name=bond_name, bizportal=True)
 
 
-def add_key_people(company_name=None):
-    key_people_text = ''
-    if company_name is not None:
-        key_people_text = ask_gepeto(
-            prompt=f"give me in bullets and in *HEBREW* the key people from the company {company_name}"
-                   f"Please write only the information, without additions of introduction or conclusion.",
-            model=GPT4)
+def add_key_people(maya_link=None):
+    key_text = ''
+    if maya_link is not None:
+        key_text = get_data_from_site(link=maya_link, key_people=True)
     else:
-        key_people_text = "לא נמצאו אנשי מפתח"
-    add_paragraph(key_people_text)
+        key_text = 'לא נמצא לינק למאיה'
+    add_paragraph(key_text)
 
 
 def add_last_reports(maya_link=None):
@@ -399,21 +420,21 @@ def add_social(company_name=None):
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, facebook=True)
     if link is not None:
-        add_paragraph(link)
+        add_paragraph(f"    link")
 
     # ----------- INSTAGRAM URL -----------#
     txt = '-אינסטגרם '
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, instagram=True)
     if link is not None:
-        add_paragraph(link)
+        add_paragraph(f"    link")
 
     # ----------- LINKEDIN URL -----------#
     txt = '-לינקדאין '
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, linkedin=True)
     if link is not None:
-        add_paragraph(link)
+        add_paragraph(f"    link")
 
 
 # endregion
@@ -424,7 +445,7 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     wiki_headline = '    כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
     bizportal_headline = 'ני"ע: ביזפורטל'
-    key_people_headline = 'אנשי מפתח (מומלץ לאמת את המידע) : CHATGPT'
+    key_people_headline = 'אנשי מפתח : מאיה '
     imeidiate_reports = 'דיווחים מידיים: מאיה'
     juice_headline = 'עיתונות (מומלץ לאמת את המידע) : CHATGPT'
     social_headline = ':סושיאל'
@@ -444,7 +465,7 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     add_bizportal_sum(company_name=company_name, bond_name=bond_name)
     # -------------- KEY PEOPLE DATA --------------#
     add_headline(text=key_people_headline)
-    add_key_people(company_name=_company_name)
+    add_key_people(maya_link=maya_link)
     # -------------- IMMIDIATE REPORTS --------------#
     add_headline(text=imeidiate_reports)
     link = f"{maya_link}?view=reports&q=%7B%22DateFrom%22:%222023-02-13T22:00:00.000Z%22,%22DateTo%22:%222024-02-13T22:00:00.000Z%22,%22Page%22:1,%22entity%22:%221840%22,%22events%22:%5B%5D,%22subevents%22:%5B%5D%7D"

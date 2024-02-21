@@ -253,11 +253,14 @@ def crawl_reports(reports=None):
 def get_data_from_site(link=None, company_name=None, bond_name=None,
                        wiki=False, maya=False, key_people=False, bizportal=False, maya_reports=False):
     if wiki:
+        paragraphs_limit=5
         response = requests.get(url=link)
         soup = BS(response.content, "html.parser")
         wiki_data = soup.find_all('p')
         wiki_text = '\n'
-        for i in range(0, 5):
+        if len(wiki_data) < paragraphs_limit:
+            paragraphs_limit =len(wiki_data)
+        for i in range(0, paragraphs_limit):
             wiki_text += format_html_txt(wiki_data[i].get_text()) + '\n'
         return ask_gepeto(f"summerize this whole text for me in *hebrew*:{wiki_text}")
     elif maya:
@@ -271,9 +274,12 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
 
         ret_txt = ''
         for row in rows:
-            comp_name = row.find(name="div").get_text()
-            precentage = row.find(name="div", class_="tableCol col_6 ng-binding ng-scope").get_text()
-            ret_txt += f"% {comp_name} - {precentage}\n"
+            comp_name_tag=row.find(name="div")
+            precentage_tag=row.find(name="div", class_="tableCol col_6 ng-binding ng-scope")
+            if comp_name_tag is not None and precentage_tag is not None:
+                comp_name = comp_name_tag.get_text()
+                precentage = precentage_tag.get_text()
+                ret_txt += f"% {comp_name} - {precentage}\n"
 
         return ret_txt
 
@@ -292,6 +298,8 @@ def get_data_from_site(link=None, company_name=None, bond_name=None,
             person_role = person_name_tag.find_next(name="div").get_text()
             if person_role != "דירקטור רגיל":
                 person_name = person_name_tag.get_text()
+                if "מאזן" in person_name:
+                    return "לא נמצאו אנשי מפתח"
                 ret_txt += f"{person_role} - {person_name}\n"
         return ret_txt
 
@@ -453,16 +461,16 @@ def scrape_and_sum(_company_name=None, bond_name=None):
 
     # ----------- WIKIPEDIA DATA -----------#
     add_headline(text=wiki_headline)
-    wiki_link = get_link(company=company_name, wiki=True)
+    wiki_link = get_link(company=_company_name, wiki=True)
     add_wiki_sum(wiki_link=wiki_link)
     # -------------- MAYA DATA --------------#
     add_headline(text=maya_headline)
-    maya_link = get_link(company=company_name, maya=True)
+    maya_link = get_link(company=_company_name, maya=True)
     add_maya_sum(maya_link=maya_link)
     # -------------- BIZPORTAL DATA --------------#
     add_headline(text=bizportal_headline)
-    bizportal_link = get_link(company=company_name, bizportal=True)
-    add_bizportal_sum(company_name=company_name, bond_name=bond_name)
+    bizportal_link = get_link(company=_company_name, bizportal=True)
+    add_bizportal_sum(company_name=_company_name, bond_name=bond_name)
     # -------------- KEY PEOPLE DATA --------------#
     add_headline(text=key_people_headline)
     add_key_people(maya_link=maya_link)
@@ -478,7 +486,27 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     add_social(company_name=_company_name)
 
 
+def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=None):
+    global output_folder, chrome_driver_path
+
+    output_folder = to_save_path
+    chrome_driver_path = chrome_driver
+    scrape_and_sum(_company_name=_company_name, bond_name=bond_name)
+    if output_folder is None:
+        try:
+            document.save(f'{_company_name}.docx')
+        except:
+            document.save(f'{_company_name}_{datetime.datetime.now().strftime("%d.%m_%H.%M")}.docx')
+    else:
+        try:
+            document.save(f'{output_folder}\\{_company_name}.docx')
+        except:
+            document.save(f'{output_folder}\\{_company_name}_{datetime.datetime.now().strftime("%d.%m_%H.%M")}.docx')
+
+
 if __name__ == '__main__':
+    start()
+    """
     paragraph = document.add_paragraph()
     company_name = 'אלביט מערכות'
     scrape_and_sum(_company_name=company_name, bond_name='אלביט מערכות אגח')
@@ -493,3 +521,4 @@ if __name__ == '__main__':
             document.save(f'{output_folder}\\{company_name}.docx')
         except:
             document.save(f'{output_folder}\\{company_name}_{datetime.datetime.now().strftime("%d.%m_%H.%M")}.docx')
+            """

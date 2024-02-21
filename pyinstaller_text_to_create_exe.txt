@@ -1,0 +1,1 @@
+pyinstaller --onefile --hidden-import=requests --hidden-import=bs4 --hidden-import=datetime --hidden-import=googlesearch --hidden-import=docx --hidden-import=dotenv --hidden-import=selenium --hidden-import=tkinter --hidden-import=os --hidden-import=webdriver --hidden-import=sys scraper_ui.py

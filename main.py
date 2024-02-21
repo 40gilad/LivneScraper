@@ -59,14 +59,14 @@ def add_paragraph(text=None, style=None, subheadline=False):
     font = run.font
     font.name = 'Calibri'  # Set the font name
     if subheadline:
-        font.size = Pt(15)  # Set the font size
+        font.size = Pt(18)  # Set the font size
     else:
         font.size = Pt(12)  # Set the font size
 
     par.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
 
 
-def add_headline(text, size=1):
+def add_headline(text, size=2):
     global document
     hed = document.add_heading(text, size)
     hed.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
@@ -420,21 +420,21 @@ def add_social(company_name=None):
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, facebook=True)
     if link is not None:
-        add_paragraph(f"    link")
+        add_paragraph(f"    {link}")
 
     # ----------- INSTAGRAM URL -----------#
     txt = '-אינסטגרם '
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, instagram=True)
     if link is not None:
-        add_paragraph(f"    link")
+        add_paragraph(f"    {link}")
 
     # ----------- LINKEDIN URL -----------#
     txt = '-לינקדאין '
     add_paragraph(txt, style='List Bullet')
     link = get_link(company_name, linkedin=True)
     if link is not None:
-        add_paragraph(f"    link")
+        add_paragraph(f"    {link}")
 
 
 # endregion
@@ -480,8 +480,8 @@ def scrape_and_sum(_company_name=None, bond_name=None):
 
 if __name__ == '__main__':
     paragraph = document.add_paragraph()
-    company_name = 'דליה אנרגיה'
-    scrape_and_sum(_company_name=company_name, bond_name='דליה אגח')
+    company_name = 'אלביט מערכות'
+    scrape_and_sum(_company_name=company_name, bond_name='אלביט מערכות אגח')
 
     if output_folder is None:
         try:

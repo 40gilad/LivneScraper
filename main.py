@@ -7,6 +7,7 @@ from docx.shared import Pt
 from dotenv import load_dotenv
 import os
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 import datetime
 
 
@@ -246,7 +247,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False,
         return ask_gepeto(f"summerize this whole text for me in *hebrew*:{wiki_text}")
 
     elif maya:
-        driver = webdriver.Chrome()
+        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
@@ -256,17 +257,20 @@ def get_data_from_site(link=None, bond_name=None, wiki=False,
 
         ret_txt = ''
         for row in rows:
-            comp_name_tag = row.find(name="div")
-            precentage_tag = row.find(name="div", class_="tableCol col_6 ng-binding ng-scope")
-            if comp_name_tag is not None and precentage_tag is not None:
-                comp_name = comp_name_tag.get_text()
-                precentage = precentage_tag.get_text()
-                ret_txt += f"% {comp_name} - {precentage}\n"
+            try:
+                comp_name_tag = row.find(name="div")
+                precentage_tag = row.find(name="div", class_="tableCol col_6 ng-binding ng-scope")
+                if comp_name_tag is not None and precentage_tag is not None:
+                    comp_name = comp_name_tag.get_text()
+                    precentage = precentage_tag.get_text()
+                    ret_txt += f"% {comp_name} - {precentage}\n"
+            except AttributeError:
+                return ret_txt
 
         return ret_txt
 
     elif key_people:
-        driver = webdriver.Chrome()
+        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
@@ -286,7 +290,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False,
         return ret_txt
 
     elif maya_reports:
-        driver = webdriver.Chrome()
+        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
         driver.get(link)
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
@@ -301,7 +305,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False,
             return 'משהו השתבש'
 
     elif bizportal:
-        driver = webdriver.Chrome()
+        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
         root_bonds_url_data = get_bonds(bond_name=bond_name, driver=driver)
         insert_bizportal_data(root_bonds_url_data=root_bonds_url_data, driver=driver)
         driver.quit()

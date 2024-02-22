@@ -353,10 +353,10 @@ def ask_gepeto(prompt, model=GPT3):
 # region add_<section>_sum
 def add_wiki_sum(wiki_link=None):
     if wiki_link is not None:
-        wiki_data = get_data_from_site(link=wiki_link, wiki=True)
+        wiki_text = get_data_from_site(link=wiki_link, wiki=True)
     else:
         wiki_text = 'לא נמצא לינק לויקיפדיה'
-    add_paragraph(wiki_data)
+    add_paragraph(wiki_text)
 
 
 def add_maya_sum(maya_link=None):

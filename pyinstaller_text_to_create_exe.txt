@@ -1,1 +1,3 @@
-pyinstaller --onefile --hidden-import=requests --hidden-import=bs4 --hidden-import=datetime --hidden-import=googlesearch --hidden-import=docx --hidden-import=dotenv --hidden-import=selenium --hidden-import=tkinter --hidden-import=os --hidden-import=webdriver  --hidden-import=selenium.webdriver.chrome --hidden-import=Service --hidden-import=sys scraper_ui.py
+pyinstaller --onefile --hidden-import=requests --hidden-import=bs4 --hidden-import=datetime --hidden-import=googlesearch --hidden-import=docx --hidden-import=dotenv --hidden-import=selenium --hidden-import=tkinter --hidden-import=os --hidden-import=webdriver --hidden-import=main  --hidden-import=selenium.webdriver.chrome --collect-submodules=LivneScraperPY --hidden-import=Service --hidden-import=sys  --add-data=".;." --add-data="C:\Users\40gil\Desktop\Helpful\Scraping;." scraper_ui.py
+
+

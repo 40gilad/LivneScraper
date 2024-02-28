@@ -1,3 +1,8 @@
-pyinstaller --onefile --hidden-import=requests --hidden-import=bs4 --hidden-import=datetime --hidden-import=googlesearch --hidden-import=docx --hidden-import=dotenv --hidden-import=selenium --hidden-import=tkinter --hidden-import=os --hidden-import=webdriver --hidden-import=main  --hidden-import=selenium.webdriver.chrome --collect-submodules=LivneScraperPY --hidden-import=Service --hidden-import=sys  --add-data=".;." --add-data="C:\Users\40gil\Desktop\Helpful\Scraping;." scraper_ui.py
+//to create exe using .env for chatgpt-key and run LOCALLY
+pyinstaller --onefile --hidden-import=requests --hidden-import=bs4 --hidden-import=datetime --hidden-import=googlesearch --hidden-import=docx --hidden-import=dotenv --hidden-import=selenium --hidden-import=tkinter --hidden-import=os --hidden-import=threading --hidden-import=webdriver --hidden-import=main  --hidden-import=selenium.webdriver.chrome --collect-submodules=LivneScraperPY --hidden-import=Service --hidden-import=sys  --add-data=".;." --add-data="C:\Users\40gil\Desktop\Helpful\Scraping;." scraper_ui.py
 
+//to create exe with key hardcoded:
+pyinstaller --onefile --hidden-import=requests --hidden-import=bs4 --hidden-import=datetime --hidden-import=googlesearch --hidden-import=docx --hidden-import=selenium --hidden-import=tkinter --hidden-import=os --hidden-import=threading --hidden-import=webdriver --hidden-import=main  --hidden-import=selenium.webdriver.chrome --collect-submodules=LivneScraperPY --hidden-import=Service --hidden-import=sys  --add-data=".;." --add-data="C:\Users\40gil\Desktop\Helpful\Scraping;." scraper_ui.py
 
+ADD THIS TO CREATE THE EXE WITHOUT CMD RUNNING WHILE EXECUTING:
+--noconsole

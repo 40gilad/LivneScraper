@@ -1,4 +1,5 @@
 import tkinter as tk
+import threading
 from tkinter import filedialog
 import os
 import sys
@@ -24,14 +25,19 @@ def on_submit():
     output_text.insert(tk.END, "...התחלתי לעבוד\n")
     output_text.update_idletasks()  # Force GUI update
 
-    try:
-        main.start(_company_name=company_name, bond_name=bond_name,
-                      to_save_path=to_save_path, chrome_driver=chrome_driver_path)
-        output_text.insert(tk.END, "זהו. סיכום החברה נוצר ונשמר במקום הרצוי \n")
-    except Exception as e:
-        error_message = f"Error: {str(e)}\nPlease check your internet connection and ensure the entered information is correct."
-        output_text.insert(tk.END, error_message)
-    output_text.update_idletasks()
+    def run_scraping():
+        try:
+            main.start(_company_name=company_name, bond_name=bond_name,
+                          to_save_path=to_save_path, chrome_driver=chrome_driver_path)
+            output_text.insert(tk.END, "זהו. סיכום החברה נוצר ונשמר במקום הרצוי \n")
+        except Exception as e:
+            error_message = f"Error: {str(e)}\nPlease check your internet connection and ensure the entered information is correct."
+            output_text.insert(tk.END, error_message)
+        output_text.update_idletasks()  # Update GUI in the thread
+
+    # Create a new thread and start the scraping function
+    scraping_thread = threading.Thread(target=run_scraping)
+    scraping_thread.start()
 
 # Create the main window
 root = tk.Tk()
@@ -58,7 +64,7 @@ button_browse_1 = tk.Button(root, text="עיון...", command=lambda: browse_fol
 button_browse_1.grid(row=2, column=2, padx=10, pady=10)
 
 # Path 2
-chrome_driver_path_input_text = tk.Label(root, text="Crome driver:")
+chrome_driver_path_input_text = tk.Label(root, text="Crome driver: (רק אם לא נמצא בתיקייה של האפליקציה ) ")
 chrome_driver_path_input_text.grid(row=3, column=0, padx=10, pady=10)
 chrome_driver_path_input = tk.Entry(root)
 chrome_driver_path_input.grid(row=3, column=1, padx=10, pady=10)

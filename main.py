@@ -10,7 +10,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 import datetime
 
-
 # region Globals
 
 GPT3 = "gpt-3.5-turbo"
@@ -153,13 +152,34 @@ def format_html_txt(html_string):
     return text_without_tags
 
 
-def get_link(company, wiki=False, maya=False, bizportal=False, facebook=False, instagram=False, linkedin=False):
+def format_wiki_text(wiki_txt):
+    txt = ""
+    for p in wiki_txt:
+        txt += f'{p.get_text()}\n'
+    while '[' in txt:
+        indx = txt.index('[')
+        txt = txt[:indx] + txt[indx + 3:]  # " bla bla[1] bla bla"
+    return txt
+
+
+def get_link(company, wiki=False, maya=False, bizportal=False,
+               globs=False,bizpotal_juice=False,themarker=False,calcalist=False,
+                facebook=False, instagram=False, linkedin=False):
+    #TODO: keep on with juice sites
     if wiki:
         query = f"{company} ויקי "
     elif maya:
         query = f"{company} מאיה "
     elif bizportal:
         query = f"{company} ביזפורטל אגח "
+    elif globs:
+        query = f"{company} גלובס "
+    elif bizpotal_juice:
+        query = f"{company} ביזפורטל "
+    elif themarker:
+        query = f"{company} דהמרקר "
+    elif calcalist:
+        query = f"{company} כלכליסט "
     elif instagram:
         query = f"{company} instagram"
     elif facebook:
@@ -167,12 +187,15 @@ def get_link(company, wiki=False, maya=False, bizportal=False, facebook=False, i
     elif linkedin:
         query = f"{company} linkedin"
 
-    search_res = search(query)
+    search_res = search(query, tld="co.il", stop=3)
     for j in search_res:
         if (
                 (wiki and 'he.wikipedia.org/wiki/' in j)
                 or (maya and 'maya.tase.co.il' in j)
-                or (bizportal and 'bizportal.co.il' in j)
+                or ((bizportal or bizpotal_juice) and 'bizportal.co.il' in j)
+                # or (maya and 'maya.tase.co.il' in j)
+                # or (maya and 'maya.tase.co.il' in j)
+                # or (maya and 'maya.tase.co.il' in j)
                 or (facebook and 'facebook.com' in j)
                 or (instagram and 'instagram.com' in j)
                 or (linkedin and 'linkedin.com' in j)
@@ -232,19 +255,17 @@ def crawl_reports(reports=None):
                 add_paragraph(f"    {txt}")
 
 
-def get_data_from_site(link=None, bond_name=None, wiki=False,
+def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
                        maya=False, key_people=False, bizportal=False, maya_reports=False):
     if wiki:
-        paragraphs_limit = 5
         response = requests.get(url=link)
         soup = BS(response.content, "html.parser")
-        wiki_data = soup.find_all('p')
-        wiki_text = '\n'
-        if len(wiki_data) < paragraphs_limit:
-            paragraphs_limit = len(wiki_data)
-        for i in range(0, paragraphs_limit):
-            wiki_text += format_html_txt(wiki_data[i].get_text()) + '\n'
-        return ask_gepeto(f"summerize this whole text for me in *hebrew*:{wiki_text}")
+
+        wiki_data = []
+        for i in range(wiki_paragraphs - 1):
+            wiki_data.append(soup.find('p'))
+            wiki_data.append(wiki_data[i].find_next('p'))
+        return f'\n {format_wiki_text(wiki_data)}'
 
     elif maya:
         driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
@@ -408,12 +429,18 @@ def add_last_reports(maya_link=None):
 
 
 def add_juice(company_name=None):
-    juice_text = ''
-    if company_name is not None:
-        juice_text = ask_gepeto(prompt=f"give me a short summary *IN HEBREW* about the company {company_name}"
-                                       f"everything intersting and relevant for money investing"
-                                       f"Please write only the information, without additions of introduction or conclusion",
-                                model=GPT4)
+    for key,val in company_name.items():
+        add_paragraph(txt=key,style="List Bullets")
+        if key == 'globs':
+            link=get_link(company=company_name,globs=True)
+        if key == 'bizpotal':
+            link=get_link(company=company_name,bizpotal_juice=True)
+        if key == 'themarker':
+            link=get_link(company=company_name,themarker=True)
+        if key == 'calcalist':
+            link=get_link(company=company_name,calcalist=True)
+        if company_name is not None:
+            juice_text= get_data_from_site(link=, maya_reports=True)
     else:
         juice_text = 'לא נמצא מידע רלוונטי בעיתונות ובאינטרנט'
     add_paragraph(juice_text)
@@ -486,7 +513,6 @@ def scrape_and_sum(_company_name=None, bond_name=None):
 
 
 def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=None):
-
     global output_folder, chrome_driver_path
     if _company_name is None or bond_name is None or to_save_path is None or chrome_driver is None:
         raise ValueError('in start function, you must provide all necessary arguments')
@@ -511,8 +537,11 @@ def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=N
 
 
 if __name__ == '__main__':
-    try:
-        start()
-    except Exception as e:
-        print(f"\nAn error occurred: " + str(e))
-        exit(1)
+    paragraph = document.add_paragraph()
+    company_name = 'בנק הפועלים'
+    scrape_and_sum(_company_name=company_name, bond_name='דליה אגח')
+    # try:
+    #     start()
+    # except Exception as e:
+    #     print(f"\nAn error occurred: " + str(e))
+    #     exit(1)

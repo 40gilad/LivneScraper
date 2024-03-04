@@ -21,8 +21,8 @@ output_folder = None
 bizportal_root = "https://www.bizportal.co.il"
 bizportal_data_link = "https://www.bizportal.co.il/bonds/quote/bondsdata/"
 bizportal_search_page = "https://www.bizportal.co.il/list/searchpapers?search="
-chrome_driver_path = r"C:\Users\40gil\Desktop\Helpful\Scraping\chromedriver.exe"
-
+chrome_driver_path = r".\chromedriver.exe"
+driver = None
 # endregion
 
 # region Load .env
@@ -65,7 +65,8 @@ def add_headline(text, size=2):
     hed.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
 
 
-def insert_bizportal_data(root_bonds_url_data=None, driver=None):
+def insert_bizportal_data(root_bonds_url_data=None):
+    global driver
     if root_bonds_url_data is None or driver is None:
         raise ValueError("root_bonds_url_data or driver are None")
         return
@@ -163,11 +164,11 @@ def format_wiki_text(wiki_txt):
 
 
 def get_link(company, wiki=False, maya=False, bizportal=False,
-               globs=False,bizpotal_juice=False,themarker=False,calcalist=False,
-                facebook=False, instagram=False, linkedin=False):
-    #TODO: keep on with juice sites
+             globs=False, bizpotal_juice=False, themarker=False, calcalist=False,
+             facebook=False, instagram=False, linkedin=False):
+    # TODO: keep on with juice sites
     if wiki:
-        query = f"{company} ויקי "
+        query = f"{company} ויקיפדיה "
     elif maya:
         query = f"{company} מאיה "
     elif bizportal:
@@ -193,9 +194,9 @@ def get_link(company, wiki=False, maya=False, bizportal=False,
                 (wiki and 'he.wikipedia.org/wiki/' in j)
                 or (maya and 'maya.tase.co.il' in j)
                 or ((bizportal or bizpotal_juice) and 'bizportal.co.il' in j)
-                # or (maya and 'maya.tase.co.il' in j)
-                # or (maya and 'maya.tase.co.il' in j)
-                # or (maya and 'maya.tase.co.il' in j)
+                or (globs and 'globes.co.il/news/' in j and j.endswith('.tag'))
+                or (themarker and 'themarker.com/ty-tag/' in j)
+                or (calcalist and 'www.calcalist.co.il/tags' in j)
                 or (facebook and 'facebook.com' in j)
                 or (instagram and 'instagram.com' in j)
                 or (linkedin and 'linkedin.com' in j)
@@ -205,7 +206,7 @@ def get_link(company, wiki=False, maya=False, bizportal=False,
     return None
 
 
-def get_bonds(bond_name, driver):
+def get_bonds(bond_name):
     """
 
     :param bond_name:
@@ -220,6 +221,8 @@ def get_bonds(bond_name, driver):
             }
             ]
     """
+    global driver
+
     bond_name = bond_name.replace(" ", "%20")
     link = f"{bizportal_search_page}{bond_name}"
     driver.get(link)
@@ -256,11 +259,17 @@ def crawl_reports(reports=None):
 
 
 def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
-                       maya=False, key_people=False, bizportal=False, maya_reports=False):
-    if wiki:
-        response = requests.get(url=link)
-        soup = BS(response.content, "html.parser")
+                       maya=False, key_people=False, bizportal=False, maya_reports=False,
+                       globs=False, bizportal_juice=False, themarker=False, calcalist=False, juice_articles_amount=3):
+    global driver
 
+    if not bizportal:
+        # the websites that demand driver.
+        driver.get(link)
+        page_source = driver.page_source
+        soup = BS(page_source, 'html.parser')
+
+    if wiki:
         wiki_data = []
         for i in range(wiki_paragraphs - 1):
             wiki_data.append(soup.find('p'))
@@ -268,14 +277,8 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
         return f'\n {format_wiki_text(wiki_data)}'
 
     elif maya:
-        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
-        driver.get(link)
-        page_source = driver.page_source
-        soup = BS(page_source, 'html.parser')
-        driver.quit()
         share_holders_table = soup.find_all(name="div", class_="listTable share-holders-grid")
         rows = share_holders_table[0].find_all(name="div", class_="ng-scope tableRow")
-
         ret_txt = ''
         for row in rows:
             try:
@@ -291,11 +294,6 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
         return ret_txt
 
     elif key_people:
-        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
-        driver.get(link)
-        page_source = driver.page_source
-        soup = BS(page_source, 'html.parser')
-        driver.quit()
         key_people_table = soup.find_all(name="div", class_="mobileTableFrame")[2]
         rows = key_people_table.find_all(name="div", class_="ng-scope tableRow")
 
@@ -311,11 +309,6 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
         return ret_txt
 
     elif maya_reports:
-        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
-        driver.get(link)
-        page_source = driver.page_source
-        soup = BS(page_source, 'html.parser')
-        driver.quit()
         try:
             reports_section = soup.find('maya-reports')
             reports = reports_section.find_all('div', class_='feedItem ng-scope')
@@ -326,10 +319,28 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
             return 'משהו השתבש'
 
     elif bizportal:
-        driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
-        root_bonds_url_data = get_bonds(bond_name=bond_name, driver=driver)
-        insert_bizportal_data(root_bonds_url_data=root_bonds_url_data, driver=driver)
-        driver.quit()
+        root_bonds_url_data = get_bonds(bond_name=bond_name)
+        insert_bizportal_data(root_bonds_url_data=root_bonds_url_data)
+
+    elif globs:
+        arts = soup.find_all('div', class_='tagit')
+        for i in range(0, juice_articles_amount):
+            art = arts[i]
+            title = art.find('h3', class_='tagit__title').get_text()
+            href = art.find('a', class_='tagit__link').get('href')
+            description = art.find('div', class_='tagit__subtitle').get_text()
+            add_paragraph(title)
+            add_paragraph(description)
+            add_paragraph(f'{href}\n')
+
+    elif bizportal_juice:
+        pass
+
+    elif themarker:
+        pass
+
+    elif calcalist:
+        pass
 
     return None
 
@@ -428,22 +439,36 @@ def add_last_reports(maya_link=None):
         add_paragraph(maya_text)
 
 
-def add_juice(company_name=None):
-    for key,val in company_name.items():
-        add_paragraph(txt=key,style="List Bullets")
+def add_juice(company_name=None,news_websites=None):
+    if company_name is None:
+        return "שגיאה בשם החברה"
+    for key in news_websites:
+
+        add_paragraph(text=f'{key}:\n', style="List Bullet")
+        link = None
+        juice_text = ""
+
         if key == 'globs':
-            link=get_link(company=company_name,globs=True)
-        if key == 'bizpotal':
-            link=get_link(company=company_name,bizpotal_juice=True)
-        if key == 'themarker':
-            link=get_link(company=company_name,themarker=True)
-        if key == 'calcalist':
-            link=get_link(company=company_name,calcalist=True)
-        if company_name is not None:
-            juice_text= get_data_from_site(link=, maya_reports=True)
-    else:
-        juice_text = 'לא נמצא מידע רלוונטי בעיתונות ובאינטרנט'
-    add_paragraph(juice_text)
+            link = get_link(company=company_name, globs=True)
+            if link is not None:
+                juice_text = get_data_from_site(link=link, globs=True)
+
+        elif key == 'bizportal':
+            link = get_link(company=company_name, bizpotal_juice=True)
+            if link is not None:
+                juice_text = get_data_from_site(link=link, bizpotal_juice=True)
+
+        elif key == 'themarker':
+            link = get_link(company=company_name, themarker=True)
+            if link is not None:
+                juice_text = get_data_from_site(link=link, themarker=True)
+
+        elif key == 'calcalist':
+            link = get_link(company=company_name, calcalist=True)
+            if link is not None:
+                juice_text = get_data_from_site(link=link, calcalist=True)
+
+        add_paragraph(juice_text)
 
 
 def add_social(company_name=None):
@@ -476,48 +501,53 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     if _company_name is None or bond_name is None:
         raise ValueError('Scrape_and_sum: _Company_name or bond_name are None. both should have valid value')
 
+    global driver
+
     wiki_headline = '    כללי: ויקיפדיה'
     maya_headline = 'בעלות: מאיה'
     bizportal_headline = 'ני"ע: ביזפורטל'
     key_people_headline = 'אנשי מפתח : מאיה '
     imeidiate_reports = 'דיווחים מידיים: מאיה'
-    juice_headline = 'עיתונות (מומלץ לאמת את המידע) : CHATGPT'
+    juice_headline = 'עיתונות: '
     social_headline = ':סושיאל'
     add_headline(text=_company_name, size=0)
 
     # ----------- WIKIPEDIA DATA -----------#
-    add_headline(text=wiki_headline)
-    wiki_link = get_link(company=_company_name, wiki=True)
-    add_wiki_sum(wiki_link=wiki_link)
-    # -------------- MAYA DATA --------------#
-    add_headline(text=maya_headline)
-    maya_link = get_link(company=_company_name, maya=True)
-    add_maya_sum(maya_link=maya_link)
-    # -------------- BIZPORTAL DATA --------------#
-    add_headline(text=bizportal_headline)
-    bizportal_link = get_link(company=_company_name, bizportal=True)
-    add_bizportal_sum(company_name=_company_name, bond_name=bond_name)
-    # -------------- KEY PEOPLE DATA --------------#
-    add_headline(text=key_people_headline)
-    add_key_people(maya_link=maya_link)
-    # -------------- IMMIDIATE REPORTS --------------#
-    add_headline(text=imeidiate_reports)
-    link = f"{maya_link}?view=reports&q=%7B%22DateFrom%22:%222023-02-13T22:00:00.000Z%22,%22DateTo%22:%222024-02-13T22:00:00.000Z%22,%22Page%22:1,%22entity%22:%221840%22,%22events%22:%5B%5D,%22subevents%22:%5B%5D%7D"
-    add_last_reports(maya_link=link)
+    # add_headline(text=wiki_headline)
+    # wiki_link = get_link(company=_company_name, wiki=True)
+    # add_wiki_sum(wiki_link=wiki_link)
+    # # -------------- MAYA DATA --------------#
+    # add_headline(text=maya_headline)
+    # maya_link = get_link(company=_company_name, maya=True)
+    # add_maya_sum(maya_link=maya_link)
+    # # -------------- BIZPORTAL DATA --------------#
+    # add_headline(text=bizportal_headline)
+    # bizportal_link = get_link(company=_company_name, bizportal=True)
+    # add_bizportal_sum(company_name=_company_name, bond_name=bond_name)
+    # # -------------- KEY PEOPLE DATA --------------#
+    # add_headline(text=key_people_headline)
+    # add_key_people(maya_link=maya_link)
+    # # -------------- IMMIDIATE REPORTS --------------#
+    # add_headline(text=imeidiate_reports)
+    # link = f"{maya_link}?view=reports&q=%7B%22DateFrom%22:%222023-02-13T22:00:00.000Z%22,%22DateTo%22:%222024-02-13T22:00:00.000Z%22,%22Page%22:1,%22entity%22:%221840%22,%22events%22:%5B%5D,%22subevents%22:%5B%5D%7D"
+    # add_last_reports(maya_link=link)
     # -------------- JUICE DATA --------------#
     add_headline(text=juice_headline)
-    add_juice(company_name=_company_name)
+    add_juice(company_name=_company_name,news_websites=["globs","themarker","calcalist","bizportal"])
     # -------------- SOCIAL DATA --------------#
     add_headline(text=social_headline)
     add_social(company_name=_company_name)
 
+    driver.quit()
+
 
 def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=None):
-    global output_folder, chrome_driver_path
+    global output_folder, chrome_driver_path, driver
     if _company_name is None or bond_name is None or to_save_path is None or chrome_driver is None:
         raise ValueError('in start function, you must provide all necessary arguments')
     output_folder = to_save_path
     chrome_driver_path = chrome_driver
+    driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
 
     try:
         scrape_and_sum(_company_name=_company_name, bond_name=bond_name)
@@ -538,7 +568,8 @@ def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=N
 
 if __name__ == '__main__':
     paragraph = document.add_paragraph()
-    company_name = 'בנק הפועלים'
+    company_name = 'דליה אנרגיה'
+    driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
     scrape_and_sum(_company_name=company_name, bond_name='דליה אגח')
     # try:
     #     start()

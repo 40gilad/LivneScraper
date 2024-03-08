@@ -1,13 +1,9 @@
 import time
-import requests
 from bs4 import BeautifulSoup as BS
 from googlesearch import search
 from docx import Document
-import docx
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Pt
-from dotenv import load_dotenv
-import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 import datetime
@@ -27,22 +23,6 @@ chrome_driver_path = r".\chromedriver.exe"
 driver = None
 # endregion
 
-# region Load .env
-
-
-env_path = r'C:\Users\40gil\Desktop\Helpful\Scraping\LivneScraperPY\LivneScraper.env'
-try:
-    load_dotenv(dotenv_path=env_path)
-    api_key = os.getenv('OPENAI_KEY')
-    if api_key is None:
-        raise ValueError("OpenAI API key not found in environment variables.")
-except Exception as err:
-    print(f"Error: {err}")
-    # Handle the error accordingly, e.g., exit the script or provide a default API key.
-
-
-# endregion
-
 # region Doc manipulation
 
 def add_paragraph(text=None, style=None, subheadline=False,subsubheadline=False):
@@ -55,14 +35,14 @@ def add_paragraph(text=None, style=None, subheadline=False,subsubheadline=False)
     if subsubheadline:
         font.size = Pt(15)  # Set the font size
     elif subheadline:
-        font.size = Pt(18)  # Set the font size
+        font.size = Pt(20)  # Set the font size
     else:
         font.size = Pt(12)  # Set the font size
 
     par.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
 
 
-def add_headline(text, size=2):
+def add_headline(text, size=1):
     global document
     hed = document.add_heading(text, size)
     hed.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
@@ -84,7 +64,7 @@ def insert_bizportal_data(root_bonds_url_data=None):
         soup = BS(page_source, 'html.parser')
 
         # add bonds sum as subheadline and the name of the bond
-        add_paragraph(text=f" - {d['name']}  ", style='List Bullet', subheadline=True)
+        add_paragraph(text=f" - {d['name']}  ", style='List Bullet', subsubheadline=True)
 
         # from root page
         spans = soup.find_all(name='span', class_='label')
@@ -94,12 +74,18 @@ def insert_bizportal_data(root_bonds_url_data=None):
 
         for span in spans:
 
-            if iter_counter == 2:  # already got into all ifs
+            if iter_counter == 3:  # already got into all ifs
                 iter_counter = 0
                 break
             curr_span = span.get_text()
 
-            # todo NEED TO INSERT VALUE
+            if curr_span == 'שווי שוק סדרה(אלפי ₪)':
+
+                iter_counter += 1
+
+                val = span.find_next('span').get_text()
+                text_to_insert = f"{curr_span}  -    {val} "
+                add_paragraph(text=text_to_insert, style='List Bullet 2')
 
             if curr_span == 'ענף':
 
@@ -189,7 +175,7 @@ def get_link(company, wiki=False, maya=False, bizportal=False,
     elif linkedin:
         query = f"{company} linkedin"
 
-    search_res = search(query, tld="co.il", stop=3)
+    search_res = search(query, tld="co.il", stop=7)
     for j in search_res:
         if (
                 (wiki and 'he.wikipedia.org/wiki/' in j)
@@ -253,11 +239,11 @@ def crawl_reports(reports=None):
             txt = '- ' + reports[i].find_all('span', class_='feedItemDateMobile ng-binding')[0].get_text(separator=' ',
                                                                                                          strip=True)
             if txt is not None:
-                add_paragraph(txt, style='List Bullet')
+                add_paragraph(txt, style='List Bullet',subsubheadline=True)
             txt = reports[i].find_all('a', class_='messageContent')[0].get_text(separator=' ', strip=True) + '\n'
 
             if txt is not None:
-                add_paragraph(f"    {txt}")
+                add_paragraph(f"    {txt}", style='List Bullet 2')
 
 
 def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
@@ -313,7 +299,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
                 person_name = person_name_tag.get_text()
                 if "מאזן" in person_name:
                     return "לא נמצאו אנשי מפתח"
-                ret_txt += f"{person_role} - {person_name}\n"
+                ret_txt += f"   {person_role} - {person_name}\n"
         return ret_txt
 
     elif maya_reports:
@@ -368,7 +354,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
             add_paragraph(title,subsubheadline=True)
             add_paragraph(href)
             add_paragraph(f'{themarker_root}{href}\n')
-            return None
+        return None
 
 
 
@@ -383,42 +369,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
             add_paragraph(title,subsubheadline=True)
             add_paragraph(description)
             add_paragraph(href)
-            return None
-# endregion
-
-# region GEPETO
-
-def ask_gepeto(prompt, model=GPT3):
-    # ChatGPT API endpoint
-    endpoint = "https://api.openai.com/v1/chat/completions"
-
-    # Headers containing the Authorization with your API key
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-
-    # Data payload containing the prompt and other parameters
-    data = {
-        "model": model,  # You can choose different models as per your requirement
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
-    }
-
-    try:
-        # Making a POST request to the API
-        response = requests.post(endpoint, json=data, headers=headers)
-
-        # Check if the request was successful
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
-        else:
-            return f"Error: {response.status_code} - {response.text}"
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
+        return None
 # endregion
 
 # region add_<section>_sum
@@ -486,25 +437,25 @@ def add_juice(company_name=None,news_websites=None):
         link = None
         juice_text = None
 
-        if key == 'globs':
+        if key == 'Globs':
             link = get_link(company=company_name, globs=True)
             if link is not None:
-                add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
+                add_paragraph(text=f':{key}\n', style="List Bullet",subheadline=True)
                 juice_text = get_data_from_site(link=link, globs=True)
 
-        if key == 'bizportal':
+        if key == 'Bizportal':
             link = get_link(company=company_name, bizpotal_juice=True)
             if link is not None:
                 add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
                 juice_text = get_data_from_site(link=link, bizportal_juice=True)
 
-        elif key == 'themarker':
+        elif key == 'TheMarker':
             link = f'https://www.themarker.com/search-results?q={company_name.replace(" ", "+")}'
             if link is not None:
                 add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
                 juice_text = get_data_from_site(link=link, themarker=True)
 
-        elif key == 'calcalist':
+        elif key == 'Calcalist':
             link = get_link(company=company_name, calcalist=True)
             if link is not None:
                 add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
@@ -517,21 +468,21 @@ def add_juice(company_name=None,news_websites=None):
 def add_social(company_name=None):
     # ----------- FACEBOOK URL -----------#
     txt = '-פייסבוק '
-    add_paragraph(txt, style='List Bullet')
+    add_paragraph(txt, style='List Bullet',subsubheadline=True)
     link = get_link(company_name, facebook=True)
     if link is not None:
         add_paragraph(f"    {link}")
 
     # ----------- INSTAGRAM URL -----------#
     txt = '-אינסטגרם '
-    add_paragraph(txt, style='List Bullet')
+    add_paragraph(txt, style='List Bullet',subsubheadline=True)
     link = get_link(company_name, instagram=True)
     if link is not None:
         add_paragraph(f"    {link}")
 
     # ----------- LINKEDIN URL -----------#
     txt = '-לינקדאין '
-    add_paragraph(txt, style='List Bullet')
+    add_paragraph(txt, style='List Bullet',subsubheadline=True)
     link = get_link(company_name, linkedin=True)
     if link is not None:
         add_paragraph(f"    {link}")
@@ -555,28 +506,28 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     social_headline = ':סושיאל'
     add_headline(text=_company_name, size=0)
 
-    # ----------- WIKIPEDIA DATA -----------#
-    # add_headline(text=wiki_headline)
-    # wiki_link = get_link(company=_company_name, wiki=True)
-    # add_wiki_sum(wiki_link=wiki_link)
-    # # -------------- MAYA DATA --------------#
-    # add_headline(text=maya_headline)
-    # maya_link = get_link(company=_company_name, maya=True)
-    # add_maya_sum(maya_link=maya_link)
-    # # -------------- BIZPORTAL DATA --------------#
-    # add_headline(text=bizportal_headline)
-    # bizportal_link = get_link(company=_company_name, bizportal=True)
-    # add_bizportal_sum(company_name=_company_name, bond_name=bond_name)
-    # # -------------- KEY PEOPLE DATA --------------#
-    # add_headline(text=key_people_headline)
-    # add_key_people(maya_link=maya_link)
-    # # -------------- IMMIDIATE REPORTS --------------#
-    # add_headline(text=imeidiate_reports)
-    # link = f"{maya_link}?view=reports&q=%7B%22DateFrom%22:%222023-02-13T22:00:00.000Z%22,%22DateTo%22:%222024-02-13T22:00:00.000Z%22,%22Page%22:1,%22entity%22:%221840%22,%22events%22:%5B%5D,%22subevents%22:%5B%5D%7D"
-    # add_last_reports(maya_link=link)
+    #----------- WIKIPEDIA DATA -----------#
+    add_headline(text=wiki_headline)
+    wiki_link = get_link(company=_company_name, wiki=True)
+    add_wiki_sum(wiki_link=wiki_link)
+    # -------------- MAYA DATA --------------#
+    add_headline(text=maya_headline)
+    maya_link = get_link(company=_company_name, maya=True)
+    add_maya_sum(maya_link=maya_link)
+    # -------------- BIZPORTAL DATA --------------#
+    add_headline(text=bizportal_headline)
+    bizportal_link = get_link(company=_company_name, bizportal=True)
+    add_bizportal_sum(company_name=_company_name, bond_name=bond_name)
+    # -------------- KEY PEOPLE DATA --------------#
+    add_headline(text=key_people_headline)
+    add_key_people(maya_link=maya_link)
+    # -------------- IMMIDIATE REPORTS --------------#
+    add_headline(text=imeidiate_reports)
+    link = f"{maya_link}?view=reports&q=%7B%22DateFrom%22:%222023-02-13T22:00:00.000Z%22,%22DateTo%22:%222024-02-13T22:00:00.000Z%22,%22Page%22:1,%22entity%22:%221840%22,%22events%22:%5B%5D,%22subevents%22:%5B%5D%7D"
+    add_last_reports(maya_link=link)
     # -------------- JUICE DATA --------------#
     add_headline(text=juice_headline)
-    add_juice(company_name=_company_name,news_websites=["globs","calcalist","bizportal","themarker"])
+    add_juice(company_name=_company_name,news_websites=["Globs","Calcalist","Bizportal","TheMarker"])
     # -------------- SOCIAL DATA --------------#
     add_headline(text=social_headline)
     add_social(company_name=_company_name)
@@ -610,12 +561,15 @@ def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=N
 
 
 if __name__ == '__main__':
+
+    #--------------- QA ---------------#
     paragraph = document.add_paragraph()
     company_name = 'בנק הפועלים'
     driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
     scrape_and_sum(_company_name=company_name, bond_name='פועלים אגח')
-    document.save(f'{company_name}.docx')
+    document.save(f'QA {company_name} QA.docx')
 
+    #-------- RUNNING WITH UI ---------#
     # try:
     #     start()
     # except Exception as e:

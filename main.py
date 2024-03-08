@@ -21,11 +21,13 @@ bizportal_data_link = "https://www.bizportal.co.il/bonds/quote/bondsdata/"
 bizportal_search_page = "https://www.bizportal.co.il/list/searchpapers?search="
 chrome_driver_path = r".\chromedriver.exe"
 driver = None
+
+
 # endregion
 
 # region Doc manipulation
 
-def add_paragraph(text=None, style=None, subheadline=False,subsubheadline=False):
+def add_paragraph(text=None, style=None, subheadline=False, subsubheadline=False):
     if text is None:
         return
     par = document.add_paragraph(text, style=style)
@@ -80,7 +82,6 @@ def insert_bizportal_data(root_bonds_url_data=None):
             curr_span = span.get_text()
 
             if curr_span == 'שווי שוק סדרה(אלפי ₪)':
-
                 iter_counter += 1
 
                 val = span.find_next('span').get_text()
@@ -239,7 +240,7 @@ def crawl_reports(reports=None):
             txt = '- ' + reports[i].find_all('span', class_='feedItemDateMobile ng-binding')[0].get_text(separator=' ',
                                                                                                          strip=True)
             if txt is not None:
-                add_paragraph(txt, style='List Bullet',subsubheadline=True)
+                add_paragraph(txt, style='List Bullet', subsubheadline=True)
             txt = reports[i].find_all('a', class_='messageContent')[0].get_text(separator=' ', strip=True) + '\n'
 
             if txt is not None:
@@ -260,8 +261,6 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
 
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
-
-
 
     if wiki:
         wiki_data = []
@@ -299,7 +298,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
                 person_name = person_name_tag.get_text()
                 if "מאזן" in person_name:
                     return "לא נמצאו אנשי מפתח"
-                ret_txt += f"   {person_role} - {person_name}\n"
+                ret_txt += f"   {person_role} - {person_name}   \n"
         return ret_txt
 
     elif maya_reports:
@@ -317,42 +316,42 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
         insert_bizportal_data(root_bonds_url_data=root_bonds_url_data)
 
     elif globs:
-        globs_root="https://www.globes.co.il/"
+        globs_root = "https://www.globes.co.il/"
         arts = soup.find_all('div', class_='tagit')
         for i in range(0, juice_articles_amount):
             art = arts[i]
             title = art.find('h3', class_='tagit__title').get_text()
             href = art.find('a', class_='tagit__link').get('href')
             description = art.find('p', class_='tagit__subtitle').get_text()
-            add_paragraph(title,subsubheadline=True)
+            add_paragraph(title, subsubheadline=True)
             add_paragraph(description)
             add_paragraph(f'{globs_root}/{href}\n')
         return None
 
     elif bizportal_juice:
-        art = soup.find('div', class_='MainArticleBox')#first big article
-        title=art.find(name='div', class_='text').get_text()
+        art = soup.find('div', class_='MainArticleBox')  # first big article
+        title = art.find(name='div', class_='text').get_text()
         href = art.find('a', class_='img-link').get('href')
-        add_paragraph(f'{title} - {href}')
-        arts=soup.find_all(name='ul',id="secondary-article-two")[0] # two side articles
+        add_paragraph(text=title, subsubheadline=True)
+        add_paragraph(href)
+        arts = soup.find_all(name='ul', id="secondary-article-two")[0]  # two side articles
         for art in arts.find_all('li', class_='bordered-item-two'):
-            title_and_href=art.find_all('a')[3]
-            href=title_and_href.get('href')
-            title=title_and_href.get_text()
-            add_paragraph(text=title,subsubheadline=True)
+            title_and_href = art.find_all('a')[3]
+            href = title_and_href.get('href')
+            title = title_and_href.get_text()
+            add_paragraph(text=title, subsubheadline=True)
             add_paragraph(href)
         return None
 
 
     elif themarker:
         themarker_root = "https://www.themarker.com/"
-        arts=soup.find_all('article', class_='dy x d bm gd ge gf gg gh gi gj gk gl gm gn go')
-        for i in range(0,juice_articles_amount):
+        arts = soup.find_all('article', class_='dy x d bm gd ge gf gg gh gi gj gk gl gm gn go')
+        for i in range(0, juice_articles_amount):
             art = arts[i]
             title = art.find('h3', class_='hh at hi hj hk hl hm hn ho hp hq hb hc hd he hf hg').get_text()
             href = art.find('a').get('href')
-            add_paragraph(title,subsubheadline=True)
-            add_paragraph(href)
+            add_paragraph(title, subsubheadline=True)
             add_paragraph(f'{themarker_root}{href}\n')
         return None
 
@@ -361,15 +360,17 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
 
     elif calcalist:
         arts = soup.find_all('div', class_='calcalist-tag-page-item')
-        for i in range(0,juice_articles_amount):
+        for i in range(0, juice_articles_amount):
             art = arts[i]
             title = art.find('h2', class_='item-title').get_text()
             href = art.find('a').get('href')
             description = art.find('span', class_='item-sub-title').get_text()
-            add_paragraph(title,subsubheadline=True)
+            add_paragraph(title, subsubheadline=True)
             add_paragraph(description)
             add_paragraph(href)
         return None
+
+
 # endregion
 
 # region add_<section>_sum
@@ -429,7 +430,7 @@ def add_last_reports(maya_link=None):
         add_paragraph(maya_text)
 
 
-def add_juice(company_name=None,news_websites=None):
+def add_juice(company_name=None, news_websites=None):
     if company_name is None:
         return "שגיאה בשם החברה"
     for key in news_websites:
@@ -437,28 +438,28 @@ def add_juice(company_name=None,news_websites=None):
         link = None
         juice_text = None
 
-        if key == 'Globs':
+        if key == 'Globes':
             link = get_link(company=company_name, globs=True)
             if link is not None:
-                add_paragraph(text=f':{key}\n', style="List Bullet",subheadline=True)
+                add_paragraph(text=f':{key}\n', style="List Bullet", subheadline=True)
                 juice_text = get_data_from_site(link=link, globs=True)
 
         if key == 'Bizportal':
             link = get_link(company=company_name, bizpotal_juice=True)
             if link is not None:
-                add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
+                add_paragraph(text=f':{key}\n', style="List Bullet", subheadline=True)
                 juice_text = get_data_from_site(link=link, bizportal_juice=True)
 
         elif key == 'TheMarker':
             link = f'https://www.themarker.com/search-results?q={company_name.replace(" ", "+")}'
             if link is not None:
-                add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
+                add_paragraph(text=f':{key}\n', style="List Bullet", subheadline=True)
                 juice_text = get_data_from_site(link=link, themarker=True)
 
         elif key == 'Calcalist':
             link = get_link(company=company_name, calcalist=True)
             if link is not None:
-                add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
+                add_paragraph(text=f':{key}\n', style="List Bullet", subheadline=True)
                 juice_text = get_data_from_site(link=link, calcalist=True)
 
         if juice_text is not None:
@@ -468,24 +469,24 @@ def add_juice(company_name=None,news_websites=None):
 def add_social(company_name=None):
     # ----------- FACEBOOK URL -----------#
     txt = '-פייסבוק '
-    add_paragraph(txt, style='List Bullet',subsubheadline=True)
+    add_paragraph(txt, style='List Bullet', subsubheadline=True)
     link = get_link(company_name, facebook=True)
     if link is not None:
-        add_paragraph(f"    {link}")
+        add_paragraph(f"{link}   ")
 
     # ----------- INSTAGRAM URL -----------#
     txt = '-אינסטגרם '
-    add_paragraph(txt, style='List Bullet',subsubheadline=True)
+    add_paragraph(txt, style='List Bullet', subsubheadline=True)
     link = get_link(company_name, instagram=True)
     if link is not None:
-        add_paragraph(f"    {link}")
+        add_paragraph(f"{link}   ")
 
     # ----------- LINKEDIN URL -----------#
     txt = '-לינקדאין '
-    add_paragraph(txt, style='List Bullet',subsubheadline=True)
+    add_paragraph(txt, style='List Bullet', subsubheadline=True)
     link = get_link(company_name, linkedin=True)
     if link is not None:
-        add_paragraph(f"    {link}")
+        add_paragraph(f"{link}   ")
 
 
 # endregion
@@ -506,7 +507,7 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     social_headline = ':סושיאל'
     add_headline(text=_company_name, size=0)
 
-    #----------- WIKIPEDIA DATA -----------#
+    # ----------- WIKIPEDIA DATA -----------#
     add_headline(text=wiki_headline)
     wiki_link = get_link(company=_company_name, wiki=True)
     add_wiki_sum(wiki_link=wiki_link)
@@ -527,7 +528,7 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     add_last_reports(maya_link=link)
     # -------------- JUICE DATA --------------#
     add_headline(text=juice_headline)
-    add_juice(company_name=_company_name,news_websites=["Globs","Calcalist","Bizportal","TheMarker"])
+    add_juice(company_name=_company_name, news_websites=["Globes", "Calcalist", "Bizportal", "TheMarker"])
     # -------------- SOCIAL DATA --------------#
     add_headline(text=social_headline)
     add_social(company_name=_company_name)
@@ -561,15 +562,14 @@ def start(_company_name=None, bond_name=None, to_save_path=None, chrome_driver=N
 
 
 if __name__ == '__main__':
-
-    #--------------- QA ---------------#
+    # --------------- QA ---------------#
     paragraph = document.add_paragraph()
     company_name = 'בנק הפועלים'
     driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
     scrape_and_sum(_company_name=company_name, bond_name='פועלים אגח')
     document.save(f'QA {company_name} QA.docx')
 
-    #-------- RUNNING WITH UI ---------#
+    # #-------- RUNNING WITH UI ---------#
     # try:
     #     start()
     # except Exception as e:

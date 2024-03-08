@@ -1,7 +1,9 @@
+import time
 import requests
 from bs4 import BeautifulSoup as BS
 from googlesearch import search
 from docx import Document
+import docx
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Pt
 from dotenv import load_dotenv
@@ -43,14 +45,16 @@ except Exception as err:
 
 # region Doc manipulation
 
-def add_paragraph(text=None, style=None, subheadline=False):
+def add_paragraph(text=None, style=None, subheadline=False,subsubheadline=False):
     if text is None:
         return
     par = document.add_paragraph(text, style=style)
     run = par.runs[0]  # Assuming there is only one run in the paragraph
     font = run.font
     font.name = 'Calibri'  # Set the font name
-    if subheadline:
+    if subsubheadline:
+        font.size = Pt(15)  # Set the font size
+    elif subheadline:
         font.size = Pt(18)  # Set the font size
     else:
         font.size = Pt(12)  # Set the font size
@@ -264,8 +268,14 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
     if not bizportal:
         # the websites that demand driver.
         driver.get(link)
+
+        if themarker or calcalist:
+            time.sleep(5)
+
         page_source = driver.page_source
         soup = BS(page_source, 'html.parser')
+
+
 
     if wiki:
         wiki_data = []
@@ -328,7 +338,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
             title = art.find('h3', class_='tagit__title').get_text()
             href = art.find('a', class_='tagit__link').get('href')
             description = art.find('p', class_='tagit__subtitle').get_text()
-            add_paragraph(title,subheadline=True)
+            add_paragraph(title,subsubheadline=True)
             add_paragraph(description)
             add_paragraph(f'{globs_root}/{href}\n')
         return None
@@ -343,22 +353,37 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
             title_and_href=art.find_all('a')[3]
             href=title_and_href.get('href')
             title=title_and_href.get_text()
-            add_paragraph(f'{title} - {href}')
+            add_paragraph(text=title,subsubheadline=True)
+            add_paragraph(href)
         return None
 
 
     elif themarker:
-        arts=soup.find_all('article', _class='dy x d bm gd ge gf gg gh gi gj gk gl gm gn go')
+        themarker_root = "https://www.themarker.com/"
+        arts=soup.find_all('article', class_='dy x d bm gd ge gf gg gh gi gj gk gl gm gn go')
+        for i in range(0,juice_articles_amount):
+            art = arts[i]
+            title = art.find('h3', class_='hh at hi hj hk hl hm hn ho hp hq hb hc hd he hf hg').get_text()
+            href = art.find('a').get('href')
+            add_paragraph(title,subsubheadline=True)
+            add_paragraph(href)
+            add_paragraph(f'{themarker_root}{href}\n')
+            return None
 
 
 
 
     elif calcalist:
-        pass
-
-    return None
-
-
+        arts = soup.find_all('div', class_='calcalist-tag-page-item')
+        for i in range(0,juice_articles_amount):
+            art = arts[i]
+            title = art.find('h2', class_='item-title').get_text()
+            href = art.find('a').get('href')
+            description = art.find('span', class_='item-sub-title').get_text()
+            add_paragraph(title,subsubheadline=True)
+            add_paragraph(description)
+            add_paragraph(href)
+            return None
 # endregion
 
 # region GEPETO
@@ -461,29 +486,29 @@ def add_juice(company_name=None,news_websites=None):
         link = None
         juice_text = None
 
-        # if key == 'globs':
-        #     link = get_link(company=company_name, globs=True)
-        #     if link is not None:
-        #         add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
-        #         juice_text = get_data_from_site(link=link, globs=True)
+        if key == 'globs':
+            link = get_link(company=company_name, globs=True)
+            if link is not None:
+                add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
+                juice_text = get_data_from_site(link=link, globs=True)
 
-        # elif key == 'bizportal':
-        #     link = get_link(company=company_name, bizpotal_juice=True)
-        #     if link is not None:
-        #         add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
-        #         juice_text = get_data_from_site(link=link, bizportal_juice=True)
+        if key == 'bizportal':
+            link = get_link(company=company_name, bizpotal_juice=True)
+            if link is not None:
+                add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
+                juice_text = get_data_from_site(link=link, bizportal_juice=True)
 
-        if key == 'themarker':
+        elif key == 'themarker':
             link = f'https://www.themarker.com/search-results?q={company_name.replace(" ", "+")}'
             if link is not None:
                 add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
                 juice_text = get_data_from_site(link=link, themarker=True)
-        #
-        # elif key == 'calcalist':
-        #     link = get_link(company=company_name, calcalist=True)
-        #     if link is not None:
-        #         add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
-        #         juice_text = get_data_from_site(link=link, calcalist=True)
+
+        elif key == 'calcalist':
+            link = get_link(company=company_name, calcalist=True)
+            if link is not None:
+                add_paragraph(text=f'{key}:\n', style="List Bullet",subheadline=True)
+                juice_text = get_data_from_site(link=link, calcalist=True)
 
         if juice_text is not None:
             add_paragraph(juice_text)
@@ -551,7 +576,7 @@ def scrape_and_sum(_company_name=None, bond_name=None):
     # add_last_reports(maya_link=link)
     # -------------- JUICE DATA --------------#
     add_headline(text=juice_headline)
-    add_juice(company_name=_company_name,news_websites=["globs","themarker","calcalist","bizportal"])
+    add_juice(company_name=_company_name,news_websites=["globs","calcalist","bizportal","themarker"])
     # -------------- SOCIAL DATA --------------#
     add_headline(text=social_headline)
     add_social(company_name=_company_name)
@@ -588,7 +613,9 @@ if __name__ == '__main__':
     paragraph = document.add_paragraph()
     company_name = 'בנק הפועלים'
     driver = webdriver.Chrome(service=Service(executable_path=chrome_driver_path))
-    scrape_and_sum(_company_name=company_name, bond_name='דליה אגח')
+    scrape_and_sum(_company_name=company_name, bond_name='פועלים אגח')
+    document.save(f'{company_name}.docx')
+
     # try:
     #     start()
     # except Exception as e:

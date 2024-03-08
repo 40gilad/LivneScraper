@@ -298,7 +298,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
                 person_name = person_name_tag.get_text()
                 if "מאזן" in person_name:
                     return "לא נמצאו אנשי מפתח"
-                ret_txt += f"   {person_role} - {person_name}   \n"
+                ret_txt += f"   {person_role} - {person_name}\n"
         return ret_txt
 
     elif maya_reports:
@@ -345,7 +345,7 @@ def get_data_from_site(link=None, bond_name=None, wiki=False, wiki_paragraphs=2,
 
 
     elif themarker:
-        themarker_root = "https://www.themarker.com/"
+        themarker_root = "https://www.themarker.com"
         arts = soup.find_all('article', class_='dy x d bm gd ge gf gg gh gi gj gk gl gm gn go')
         for i in range(0, juice_articles_amount):
             art = arts[i]
